@@ -1,0 +1,25 @@
+{
+    "version": "0.2",
+    "language": "en,pt-BR",
+    "words": [
+        "desconhecido",
+        "serviço",
+        "habilidades",
+        "vitrine",
+        "usuário",
+        "profissional",
+        "propostas",
+        "assinaturas",
+        "erro",
+        "carregando",
+        "salvando",
+        "voltar",
+        "editar",
+        "perfil"
+    ],
+    "ignorePaths": [
+        "node_modules",
+        "dist",
+        "build"
+    ]
+}
