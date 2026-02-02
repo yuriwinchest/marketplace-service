@@ -1,5 +1,7 @@
-import { useState } from 'react'
-import type { View, UserRole } from '../types'
+
+import type { View } from '../types'
+import { RoleSelector } from '../components/RoleSelector'
+import { useRegister } from '../hooks/useRegister'
 
 interface RegisterPageProps {
     setView: (view: View) => void
@@ -8,39 +10,10 @@ interface RegisterPageProps {
 }
 
 export function RegisterPage({ setView, onRegisterSuccess, apiBaseUrl }: RegisterPageProps) {
-    const [name, setName] = useState('')
-    const [email, setEmail] = useState('')
-    const [password, setPassword] = useState('')
-    const [role, setRole] = useState<UserRole>('client')
-    const [error, setError] = useState<string | null>(null)
-    const [loading, setLoading] = useState(false)
-
-    const handleRegister = async () => {
-        setError(null)
-        setLoading(true)
-        try {
-            const res = await fetch(`${apiBaseUrl}/api/auth/register`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    name: name || undefined,
-                    email,
-                    password,
-                    role,
-                }),
-            })
-            const data = await res.json()
-            if (!res.ok) {
-                setError(data.error ?? 'Erro ao cadastrar')
-                return
-            }
-            onRegisterSuccess(email)
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Erro desconhecido')
-        } finally {
-            setLoading(false)
-        }
-    }
+    const { formState, setters, ui, handleRegister } = useRegister({ apiBaseUrl, onRegisterSuccess })
+    const { name, email, password, role } = formState
+    const { setName, setEmail, setPassword, setRole } = setters
+    const { error, loading } = ui
 
     return (
         <div className="authPage">
@@ -80,24 +53,7 @@ export function RegisterPage({ setView, onRegisterSuccess, apiBaseUrl }: Registe
                         </div>
                         <div className="authRoles">
                             <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem' }}>Tipo de conta</label>
-                            <div className="roleSelector">
-                                <button
-                                    className={`roleBtn ${role === 'client' ? 'active' : ''}`}
-                                    onClick={() => setRole('client')}
-                                >
-                                    <span className="roleIcon">🏢</span>
-                                    <span className="roleTitle">Cliente</span>
-                                    <span className="roleDesc">Preciso contratar servicos</span>
-                                </button>
-                                <button
-                                    className={`roleBtn ${role === 'professional' ? 'active' : ''}`}
-                                    onClick={() => setRole('professional')}
-                                >
-                                    <span className="roleIcon">💼</span>
-                                    <span className="roleTitle">Freelancer</span>
-                                    <span className="roleDesc">Quero oferecer servicos</span>
-                                </button>
-                            </div>
+                            <RoleSelector role={role} setRole={setRole} />
                         </div>
                     </div>
                     {error && <div className="errorBox">{error}</div>}

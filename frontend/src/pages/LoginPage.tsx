@@ -1,40 +1,19 @@
-import { useState } from 'react'
-import type { View } from '../types'
+
+import type { View, User } from '../types'
+import { useLogin } from '../hooks/useLogin'
+import { RoleSelector } from '../components/RoleSelector'
 
 interface LoginPageProps {
     setView: (view: View) => void
-    onLoginSuccess: (data: { token: string; user: any }) => void
+    onLoginSuccess: (data: { token: string; user: User }) => void
     apiBaseUrl: string
 }
 
 export function LoginPage({ setView, onLoginSuccess, apiBaseUrl }: LoginPageProps) {
-    const [email, setEmail] = useState('')
-    const [password, setPassword] = useState('')
-    const [role, setRole] = useState<'client' | 'professional'>('client')
-    const [error, setError] = useState<string | null>(null)
-    const [loading, setLoading] = useState(false)
-
-    const handleLogin = async () => {
-        setError(null)
-        setLoading(true)
-        try {
-            const res = await fetch(`${apiBaseUrl}/api/auth/login`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password, role }), // Send role to backend if supported
-            })
-            const data = await res.json()
-            if (!res.ok) {
-                setError(data.error ?? 'E-mail ou senha invalidos')
-                return
-            }
-            onLoginSuccess(data)
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Erro desconhecido')
-        } finally {
-            setLoading(false)
-        }
-    }
+    const { formState, setters, ui, handleLogin } = useLogin({ apiBaseUrl, onLoginSuccess })
+    const { email, password, role } = formState
+    const { setEmail, setPassword, setRole } = setters
+    const { error, loading } = ui
 
     return (
         <div className="authPage">
@@ -60,28 +39,12 @@ export function LoginPage({ setView, onLoginSuccess, apiBaseUrl }: LoginPageProp
                             onChange={e => setPassword(e.target.value)}
                         />
                     </div>
-                    {/* Add role selection to update profile on login if desired, or just to guide flow */}
+
                     <div className="formGroup">
                         <label>Entrar como:</label>
-                        <div className="roleSelector">
-                            <button
-                                className={`roleBtn ${role === 'client' ? 'active' : ''}`}
-                                onClick={() => setRole('client')}
-                            >
-                                <span className="roleIcon">🏢</span>
-                                <span className="roleTitle">Cliente</span>
-                                <span className="roleDesc">Contratar</span>
-                            </button>
-                            <button
-                                className={`roleBtn ${role === 'professional' ? 'active' : ''}`}
-                                onClick={() => setRole('professional')}
-                            >
-                                <span className="roleIcon">💼</span>
-                                <span className="roleTitle">Freelancer</span>
-                                <span className="roleDesc">Trabalhar</span>
-                            </button>
-                        </div>
+                        <RoleSelector role={role} setRole={setRole} />
                     </div>
+
                     {error && <div className="errorBox">{error}</div>}
                     <button
                         className="btnPrimary btnFull"

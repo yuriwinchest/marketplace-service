@@ -1,5 +1,7 @@
+
 import { useCallback, useEffect, useState } from 'react'
 import './App.css'
+import { API_BASE_URL } from './config'
 import { Header } from './components/Header'
 import { Footer } from './components/Footer'
 import { LandingPage } from './pages/LandingPage'
@@ -13,53 +15,22 @@ import { ProfilePage } from './pages/ProfilePage'
 import { MyServicesPage } from './pages/MyServicesPage'
 import { ProposalsPage } from './pages/ProposalsPage'
 import { ServiceDetailPage } from './pages/ServiceDetailPage'
+import { useAuth } from './hooks/useAuth'
 
-
-
-
-
-import type { View, AuthState, User, Category, Region, Service } from './types'
+import type { View, User, Category, Region, Service } from './types'
 
 function App() {
   const [view, setView] = useState<View>('home')
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null)
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null)
 
-  const apiBaseUrl = 'http://localhost:5000'
-
-  const [auth, setAuth] = useState<AuthState>(() => {
-    const raw = localStorage.getItem('auth')
-    if (!raw) return { state: 'anonymous' }
-    try {
-      const parsed = JSON.parse(raw)
-      if (parsed.token && parsed.user) {
-        return { state: 'authenticated', token: parsed.token, user: parsed.user }
-      }
-      return { state: 'anonymous' }
-    } catch {
-      return { state: 'anonymous' }
-    }
-  })
+  const { auth, saveAuth, logout, updateUser } = useAuth()
 
   const [categories, setCategories] = useState<Category[]>([])
   const [regions, setRegions] = useState<Region[]>([])
   const [services, setServices] = useState<Service[]>([])
   const [myServices, setMyServices] = useState<Service[]>([])
-
-
-
-
-
   const [loading, setLoading] = useState(false)
-
-  const saveAuth = useCallback((next: AuthState) => {
-    setAuth(next)
-    if (next.state === 'authenticated') {
-      localStorage.setItem('auth', JSON.stringify({ token: next.token, user: next.user }))
-    } else {
-      localStorage.removeItem('auth')
-    }
-  }, [])
 
   const token = auth.state === 'authenticated' ? auth.token : null
 
@@ -70,13 +41,13 @@ function App() {
       if (init?.body) headers.set('Content-Type', 'application/json')
       if (token) headers.set('Authorization', `Bearer ${token}`)
 
-      const res = await fetch(`${apiBaseUrl}${path}`, {
+      const res = await fetch(`${API_BASE_URL}${path}`, {
         ...init,
         headers,
       })
       return res
     },
-    [apiBaseUrl, token],
+    [token],
   )
 
   const loadPublicData = useCallback(async () => {
@@ -108,9 +79,6 @@ function App() {
   }, [apiFetch])
 
   const loadServices = useCallback(async () => {
-    // Permitir carregar se autenticado OU explicitamente no modo publico
-    // (A checagem de view dentro do useCallback pode ser tricky se view nao for dependencia, 
-    // mas aqui o backend endpoint /open agora eh publico)
     setLoading(true)
     try {
       const res = await apiFetch('/api/requests/open', { method: 'GET' })
@@ -124,7 +92,7 @@ function App() {
     } finally {
       setLoading(false)
     }
-  }, [apiFetch, auth.state])
+  }, [apiFetch])
 
   const loadMyServices = useCallback(async () => {
     if (auth.state !== 'authenticated') return
@@ -154,13 +122,6 @@ function App() {
   }, [auth.state, view, loadServices, loadMyServices])
 
 
-
-
-
-
-
-
-
   const loadProfile = useCallback(async () => {
     if (auth.state !== 'authenticated') return
     try {
@@ -168,20 +129,19 @@ function App() {
       if (res.ok) {
         const json = await res.json()
         const data = json.data || json
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        saveAuth({ state: 'authenticated', token: token!, user: data.user })
+        updateUser(data.user)
       }
     } catch {
       // silent
     }
-  }, [apiFetch, auth.state, token, saveAuth])
+  }, [apiFetch, auth.state, updateUser])
 
   const onLogout = useCallback(() => {
-    saveAuth({ state: 'anonymous' })
+    logout()
     setServices([])
     setMyServices([])
     setView('home')
-  }, [saveAuth])
+  }, [logout])
 
   const handleLoginSuccess = useCallback((data: { token: string; user: User } | { data: { token: string; user: User } }) => {
     const actualData = 'data' in data ? data.data : data
@@ -193,14 +153,10 @@ function App() {
     setView('login')
   }, [])
 
-
-
   const openServiceDetail = (serviceId: string) => {
     setSelectedServiceId(serviceId)
     setView('service-detail')
   }
-
-
 
   const selectedService = services.find(s => s.id === selectedServiceId) || myServices.find(s => s.id === selectedServiceId)
 
@@ -209,8 +165,6 @@ function App() {
       setView('dashboard')
     }
   }, [auth.state, view])
-
-
 
   return (
     <div className="app">
@@ -238,7 +192,7 @@ function App() {
             loadMyServices={loadMyServices}
             loadProfile={loadProfile}
             openServiceDetail={openServiceDetail}
-            apiBaseUrl={apiBaseUrl}
+            apiBaseUrl={API_BASE_URL}
           />
         )}
 
@@ -266,8 +220,6 @@ function App() {
             onBack={() => setView('home')}
           />
         )}
-
-
 
         {view === 'my-services' && auth.state === 'authenticated' && (
           <MyServicesPage
@@ -305,7 +257,7 @@ function App() {
             auth={auth}
             setView={setView}
             apiFetch={apiFetch}
-            apiBaseUrl={apiBaseUrl}
+            apiBaseUrl={API_BASE_URL}
             myServicesCount={myServices.length}
             servicesCount={services.length}
           />
@@ -316,17 +268,17 @@ function App() {
             auth={auth}
             setView={setView}
             apiFetch={apiFetch}
-            apiBaseUrl={apiBaseUrl}
+            apiBaseUrl={API_BASE_URL}
             onProfileUpdated={loadProfile}
           />
         )}
 
         {view === 'login' && (
-          <LoginPage setView={setView} onLoginSuccess={handleLoginSuccess} apiBaseUrl={apiBaseUrl} />
+          <LoginPage setView={setView} onLoginSuccess={handleLoginSuccess} apiBaseUrl={API_BASE_URL} />
         )}
 
         {view === 'register' && (
-          <RegisterPage setView={setView} onRegisterSuccess={handleRegisterSuccess} apiBaseUrl={apiBaseUrl} />
+          <RegisterPage setView={setView} onRegisterSuccess={handleRegisterSuccess} apiBaseUrl={API_BASE_URL} />
         )}
       </main>
       <Footer />

@@ -1,7 +1,11 @@
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import type { Service, View, AuthState } from '../types'
 import { formatCurrency, statusClass, statusLabel, formatTimeAgo, formatLocation, urgencyClass, urgencyLabel } from '../utils/formatters'
+import { useProposal } from '../hooks/useProposal'
+import { useServiceStats } from '../hooks/useServiceStats'
+import { ProposalForm } from '../components/ProposalForm'
+import { ServiceStats } from '../components/ServiceStats'
 
 interface ServiceDetailPageProps {
     service: Service
@@ -11,66 +15,28 @@ interface ServiceDetailPageProps {
 }
 
 export function ServiceDetailPage({ service, auth, apiFetch, setView }: ServiceDetailPageProps) {
-    const [sending, setSending] = useState(false)
     const [showProposalForm, setShowProposalForm] = useState(false)
-    const [proposal, setProposal] = useState({
-        value: '',
-        description: '',
-        estimatedDays: ''
-    })
-    const [stats, setStats] = useState<{
-        count: number
-        average_value: number
-        professionals: { name: string; avatar_url: string | null }[]
-    } | null>(null)
-
-    // Fetch stats
-    useEffect(() => {
-        if (auth.state === 'authenticated') {
-            apiFetch(`/api/requests/${service.id}/stats`)
-                .then(res => res.json())
-                .then(data => setStats(data))
-                .catch(err => console.error('Failed to fetch stats', err))
-        }
-    }, [auth.state, service.id, apiFetch])
-
-    const handleSendProposal = async (e: React.FormEvent) => {
-        e.preventDefault()
-        if (auth.state !== 'authenticated') return
-
-        setSending(true)
-        try {
-            const res = await apiFetch('/api/proposals', {
-                method: 'POST',
-                body: JSON.stringify({
-                    serviceRequestId: service.id,
-                    value: Number(proposal.value),
-                    description: proposal.description,
-                    estimatedDays: Number(proposal.estimatedDays)
-                })
-            })
-
-            if (res.ok) {
-                alert('Proposta enviada com sucesso!')
-                setShowProposalForm(false)
-                setView('proposals')
-            } else {
-                const data = await res.json()
-                alert(data.error || 'Erro ao enviar proposta')
-            }
-        } catch (err) {
-            alert('Erro de conexão')
-        } finally {
-            setSending(false)
-        }
-    }
 
     const isProfessional = auth.state === 'authenticated' && auth.user.role === 'professional'
 
-    // Calculations
-    const numericValue = Number(proposal.value) || 0
-    const platformFee = numericValue * 0.05
-    const clientPrice = numericValue + platformFee
+    const {
+        proposal,
+        updateProposal,
+        submitProposal,
+        sending,
+        financials
+    } = useProposal({
+        serviceId: service.id,
+        apiFetch,
+        onSuccess: () => {
+            alert('Proposta enviada com sucesso!')
+            setShowProposalForm(false)
+            setView('proposals')
+        },
+        onError: (msg) => alert(msg)
+    })
+
+    const stats = useServiceStats(service.id, auth.state === 'authenticated', apiFetch)
 
     return (
         <div className="serviceDetailPage">
@@ -108,69 +74,14 @@ export function ServiceDetailPage({ service, auth, apiFetch, setView }: ServiceD
                     </div>
 
                     {showProposalForm && isProfessional && (
-                        <div className="card" style={{ marginTop: '2rem', border: '2px solid #3b82f6' }}>
-                            <h3>Enviar Proposta</h3>
-                            <form onSubmit={handleSendProposal}>
-                                <div className="formGroup">
-                                    <label>Seu Valor (R$)</label>
-                                    <input
-                                        type="number"
-                                        required
-                                        min="0"
-                                        value={proposal.value}
-                                        onChange={e => setProposal({ ...proposal, value: e.target.value })}
-                                        placeholder="0.00"
-                                    />
-                                    <div style={{ marginTop: '0.5rem', fontSize: '0.9rem', color: '#aaa' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                            <span>Taxa de Serviço (5%):</span>
-                                            <span>+ {formatCurrency(platformFee)}</span>
-                                        </div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', marginTop: '0.25rem', color: '#fff' }}>
-                                            <span>Valor Final para o Cliente:</span>
-                                            <span>{formatCurrency(clientPrice)}</span>
-                                        </div>
-                                        <p style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: '#888' }}>
-                                            * O cliente visualizará o valor final de {formatCurrency(clientPrice)}.
-                                        </p>
-                                    </div>
-                                </div>
-                                <div className="formGroup">
-                                    <label>Prazo Estimado (dias)</label>
-                                    <input
-                                        type="number"
-                                        required
-                                        min="1"
-                                        value={proposal.estimatedDays}
-                                        onChange={e => setProposal({ ...proposal, estimatedDays: e.target.value })}
-                                        placeholder="EX: 5"
-                                    />
-                                </div>
-                                <div className="formGroup">
-                                    <label>Descrição da Proposta</label>
-                                    <textarea
-                                        required
-                                        rows={4}
-                                        value={proposal.description}
-                                        onChange={e => setProposal({ ...proposal, description: e.target.value })}
-                                        placeholder="Descreva detalhes da sua proposta, o que está incluso, etc."
-                                    />
-                                </div>
-                                <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
-                                    <button type="submit" className="btnPrimary" disabled={sending}>
-                                        {sending ? 'Enviando...' : 'Enviar Proposta'}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="btnSecondary"
-                                        onClick={() => setShowProposalForm(false)}
-                                        disabled={sending}
-                                    >
-                                        Cancelar
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
+                        <ProposalForm
+                            proposal={proposal}
+                            updateProposal={updateProposal}
+                            submitProposal={submitProposal}
+                            sending={sending}
+                            financials={financials}
+                            onCancel={() => setShowProposalForm(false)}
+                        />
                     )}
                 </div>
 
@@ -198,48 +109,7 @@ export function ServiceDetailPage({ service, auth, apiFetch, setView }: ServiceD
                         </div>
 
                         {/* Proposal Stats Section */}
-                        {isProfessional && stats && (
-                            <div style={{ marginTop: '1.5rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
-                                <h4>Estatísticas da Demanda (Atualizado)</h4>
-                                <div className="detailList">
-                                    <div className="detailRow">
-                                        <span className="label">Propostas Recebidas</span>
-                                        <span className="value">{stats.count}</span>
-                                    </div>
-                                    <div className="detailRow">
-                                        <span className="label">Média de Preço</span>
-                                        <span className="value">{formatCurrency(stats.average_value)}</span>
-                                    </div>
-                                </div>
-                                {stats.professionals && stats.professionals.length > 0 && (
-                                    <div style={{ marginTop: '1rem' }}>
-                                        <span className="label" style={{ display: 'block', marginBottom: '0.5rem' }}>Propostas de:</span>
-                                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                                            {stats.professionals.map((p, i) => (
-                                                <div key={i} title={p.name} style={{
-                                                    width: '32px', height: '32px', borderRadius: '50%', background: '#444',
-                                                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', overflow: 'hidden'
-                                                }}>
-                                                    {p.avatar_url ? (
-                                                        <img src={p.avatar_url} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                                    ) : (
-                                                        <span>{p.name.charAt(0).toUpperCase()}</span>
-                                                    )}
-                                                </div>
-                                            ))}
-                                            {stats.count > (stats.professionals?.length || 0) && (
-                                                <div style={{
-                                                    width: '32px', height: '32px', borderRadius: '50%', background: '#333',
-                                                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: '#aaa'
-                                                }}>
-                                                    +{stats.count - (stats.professionals?.length || 0)}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        )}
+                        {isProfessional && <ServiceStats stats={stats} />}
 
                         {isProfessional && !showProposalForm && service.status === 'open' && (
                             <button

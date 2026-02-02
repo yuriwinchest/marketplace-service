@@ -1,5 +1,6 @@
+
 import type { Service, View } from '../types'
-import { formatCurrency, statusClass, statusLabel, formatTimeAgo } from '../utils/formatters'
+import { MyServiceListItem } from '../components/MyServiceListItem'
 
 interface MyServicesPageProps {
     myServices: Service[]
@@ -29,33 +30,11 @@ export function MyServicesPage({ myServices, setView, openServiceDetail }: MySer
             ) : (
                 <div className="myServicesList">
                     {myServices.map(service => (
-                        <div
+                        <MyServiceListItem
                             key={service.id}
-                            className="myServiceItem"
-                            onClick={() => openServiceDetail(service.id)}
-                        >
-                            <div className="myServiceInfo">
-                                <h3>{service.title}</h3>
-                                <div className="myServiceMeta">
-                                    <span>{formatTimeAgo(service.created_at)}</span>
-                                    <span className="separator">•</span>
-                                    <span>{service.proposals_count || 0} propostas</span>
-                                </div>
-                            </div>
-                            <div className="myServiceStatus">
-                                <div className="myServiceBudget">
-                                    <span className="label">Orcamento:</span>
-                                    <span className="statVal">
-                                        {service.budget_min && service.budget_max
-                                            ? `${formatCurrency(service.budget_min)} - ${formatCurrency(service.budget_max)}`
-                                            : 'A combinar'}
-                                    </span>
-                                </div>
-                            </div>
-                            <span className={`badge ${statusClass(service.status)}`}>
-                                {statusLabel(service.status)}
-                            </span>
-                        </div>
+                            service={service}
+                            onClick={openServiceDetail}
+                        />
                     ))}
                 </div>
             )}
