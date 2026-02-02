@@ -1,4 +1,4 @@
-import { Request, Response } from 'express'
+import type { Request, Response } from 'express'
 
 export abstract class BaseController {
   protected success<T>(res: Response, data: T, statusCode = 200): Response {

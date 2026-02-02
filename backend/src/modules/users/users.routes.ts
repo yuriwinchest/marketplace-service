@@ -11,6 +11,7 @@ const service = new UsersService(repository)
 const controller = new UsersController(service)
 
 router.get('/profile', authMiddleware, (req, res) => controller.getProfile(req as any, res))
+router.get('/professionals', authMiddleware, (req, res) => controller.listProfessionals(req as any, res))
 router.put('/profile', authMiddleware, (req, res) => controller.updateProfile(req as any, res))
 router.post(
   '/profile/avatar',

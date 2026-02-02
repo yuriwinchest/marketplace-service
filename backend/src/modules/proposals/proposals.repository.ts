@@ -1,5 +1,6 @@
 import { pool } from '../../shared/database/connection.js'
-import { CreateProposalInput, UpdateProposalStatusInput } from './proposals.schema.js'
+import type { PoolClient } from 'pg'
+import type { CreateProposalInput, UpdateProposalStatusInput } from './proposals.schema.js'
 
 export interface ProposalEntity {
   id: string
@@ -142,7 +143,7 @@ export class ProposalsRepository {
   }
 
   async executeInTransaction<T>(
-    callback: (client: any) => Promise<T>,
+    callback: (client: PoolClient) => Promise<T>,
   ): Promise<T> {
     const client = await pool.connect()
     try {

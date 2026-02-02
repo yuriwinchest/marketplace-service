@@ -164,16 +164,16 @@ export function EditProfilePage({ auth, setView, apiFetch, onProfileUpdated, api
                                 />
                             </div>
                             <div className="formGroup">
-                                <label>Bio / Descricao</label>
+                                <label>Bio / Descrição</label>
                                 <textarea
-                                    placeholder="Conte um pouco sobre voce e sua experiencia..."
+                                    placeholder="Conte um pouco sobre você e sua experiência..."
                                     rows={4}
                                     value={bio}
                                     onChange={e => setBio(e.target.value)}
                                 />
                             </div>
                             <div className="formGroup">
-                                <label>Habilidades (separadas por virgula)</label>
+                                <label>Habilidades (separadas por vírgula)</label>
                                 <input
                                     type="text"
                                     placeholder="Ex: Pintura, Encanamento, Excel, Design..."
@@ -190,7 +190,7 @@ export function EditProfilePage({ auth, setView, apiFetch, onProfileUpdated, api
                             onClick={onSave}
                             disabled={loading}
                         >
-                            {loading ? 'Salvando...' : 'Salvar Alteracoes'}
+                            {loading ? 'Salvando...' : 'Salvar Alterações'}
                         </button>
                     </div>
                 </div>

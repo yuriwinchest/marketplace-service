@@ -10,6 +10,7 @@ interface LoginPageProps {
 export function LoginPage({ setView, onLoginSuccess, apiBaseUrl }: LoginPageProps) {
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
+    const [role, setRole] = useState<'client' | 'professional'>('client')
     const [error, setError] = useState<string | null>(null)
     const [loading, setLoading] = useState(false)
 
@@ -20,7 +21,7 @@ export function LoginPage({ setView, onLoginSuccess, apiBaseUrl }: LoginPageProp
             const res = await fetch(`${apiBaseUrl}/api/auth/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password }),
+                body: JSON.stringify({ email, password, role }), // Send role to backend if supported
             })
             const data = await res.json()
             if (!res.ok) {
@@ -58,6 +59,28 @@ export function LoginPage({ setView, onLoginSuccess, apiBaseUrl }: LoginPageProp
                             value={password}
                             onChange={e => setPassword(e.target.value)}
                         />
+                    </div>
+                    {/* Add role selection to update profile on login if desired, or just to guide flow */}
+                    <div className="formGroup">
+                        <label>Entrar como:</label>
+                        <div className="roleSelector">
+                            <button
+                                className={`roleBtn ${role === 'client' ? 'active' : ''}`}
+                                onClick={() => setRole('client')}
+                            >
+                                <span className="roleIcon">🏢</span>
+                                <span className="roleTitle">Cliente</span>
+                                <span className="roleDesc">Contratar</span>
+                            </button>
+                            <button
+                                className={`roleBtn ${role === 'professional' ? 'active' : ''}`}
+                                onClick={() => setRole('professional')}
+                            >
+                                <span className="roleIcon">💼</span>
+                                <span className="roleTitle">Freelancer</span>
+                                <span className="roleDesc">Trabalhar</span>
+                            </button>
+                        </div>
                     </div>
                     {error && <div className="errorBox">{error}</div>}
                     <button

@@ -11,19 +11,47 @@ interface ServicesPageProps {
     openServiceDetail: (id: string) => void
 }
 
-export function ServicesPage({ services, categories, regions, loading, onRefresh, openServiceDetail }: ServicesPageProps) {
+export function ServicesPage({ services, categories, regions, loading, onRefresh, openServiceDetail, initialCategory, fixedCategory, onBack }: ServicesPageProps & { initialCategory?: string, fixedCategory?: boolean, onBack?: () => void }) {
     const [filters, setFilters] = useState({
-        category: '',
-        region: '',
+        category: fixedCategory ? (initialCategory || '') : '', // Only lock category if fixedCategory is true
+        uf: '',
+        city: '',
         budgetMin: '',
         budgetMax: '',
         urgency: '',
     })
 
+    const [states, setStates] = useState<{ id: number; sigla: string; nome: string }[]>([])
+    const [cities, setCities] = useState<{ id: number; nome: string }[]>([])
+
+    // Load states
+    useState(() => {
+        fetch('https://servicodados.ibge.gov.br/api/v1/localidades/estados?orderBy=nome')
+            .then(res => res.json())
+            .then(data => setStates(data))
+            .catch(err => console.error('Failed to fetch states', err))
+    })
+
+    // Load cities when UF changes
+    useMemo(() => {
+        if (!filters.uf) {
+            setCities([])
+            return
+        }
+        fetch(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${filters.uf}/municipios?orderBy=nome`)
+            .then(res => res.json())
+            .then(data => setCities(data))
+            .catch(err => console.error('Failed to fetch cities', err))
+    }, [filters.uf])
+
+
+    const activeCategoryName = categories.find(c => c.id === filters.category)?.name
+
     const filteredServices = useMemo(() => {
         return services.filter(s => {
             if (filters.category && s.category_id !== filters.category) return false
-            if (filters.region && s.region_id !== filters.region) return false
+            if (filters.uf && s.uf !== filters.uf) return false
+            if (filters.city && s.city !== filters.city) return false
             if (filters.urgency && s.urgency !== filters.urgency) return false
             if (filters.budgetMin && (s.budget_max || 0) < Number(filters.budgetMin)) return false
             if (filters.budgetMax && (s.budget_min || 0) > Number(filters.budgetMax)) return false
@@ -33,9 +61,20 @@ export function ServicesPage({ services, categories, regions, loading, onRefresh
 
     return (
         <div className="servicesPage">
+            {onBack && (
+                <div style={{ marginBottom: '1rem' }}>
+                    <button
+                        className="btnSecondary"
+                        onClick={onBack}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}
+                    >
+                        ← Voltar
+                    </button>
+                </div>
+            )}
             <div className="pageHeader">
                 <div>
-                    <h1>Servicos Disponiveis</h1>
+                    <h1>{fixedCategory && activeCategoryName ? `Serviços de ${activeCategoryName}` : 'Serviços Disponíveis'}</h1>
                     <p>Encontre projetos que combinam com suas habilidades</p>
                 </div>
                 <button className="btnSecondary" onClick={onRefresh}>
@@ -46,30 +85,63 @@ export function ServicesPage({ services, categories, regions, loading, onRefresh
             <div className="servicesLayout">
                 <aside className="filtersPanel">
                     <h3>Filtros</h3>
+                    {!fixedCategory && (
+                        <div className="filterGroup">
+                            <label>Categoria</label>
+                            <select
+                                value={filters.category}
+                                onChange={e => setFilters(f => ({ ...f, category: e.target.value }))}
+                            >
+                                <option value="">Todas</option>
+                                {categories.map(c => (
+                                    <option key={c.id} value={c.id}>{c.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+                    {fixedCategory && activeCategoryName && (
+                        <div className="filterGroup">
+                            <label>Categoria</label>
+                            <div style={{
+                                padding: '0.75rem',
+                                background: 'var(--bg-secondary)',
+                                borderRadius: '8px',
+                                border: '1px solid var(--border)',
+                                color: 'var(--text-muted)',
+                                fontWeight: 500
+                            }}>
+                                {activeCategoryName}
+                            </div>
+                        </div>
+                    )}
+
                     <div className="filterGroup">
-                        <label>Categoria</label>
+                        <label>Estado (UF)</label>
                         <select
-                            value={filters.category}
-                            onChange={e => setFilters(f => ({ ...f, category: e.target.value }))}
+                            value={filters.uf}
+                            onChange={e => setFilters(f => ({ ...f, uf: e.target.value, city: '' }))}
                         >
-                            <option value="">Todas</option>
-                            {categories.map(c => (
-                                <option key={c.id} value={c.id}>{c.name}</option>
+                            <option value="">Todos</option>
+                            {states.map(state => (
+                                <option key={state.id} value={state.sigla}>{state.nome}</option>
                             ))}
                         </select>
                     </div>
+
                     <div className="filterGroup">
-                        <label>Regiao</label>
+                        <label>Cidade</label>
                         <select
-                            value={filters.region}
-                            onChange={e => setFilters(f => ({ ...f, region: e.target.value }))}
+                            value={filters.city}
+                            onChange={e => setFilters(f => ({ ...f, city: e.target.value }))}
+                            disabled={!filters.uf}
                         >
                             <option value="">Todas</option>
-                            {regions.map(r => (
-                                <option key={r.id} value={r.id}>{r.name}</option>
+                            {cities.map(city => (
+                                <option key={city.id} value={city.nome}>{city.nome}</option>
                             ))}
                         </select>
                     </div>
+
                     <div className="filterGroup">
                         <label>Urgencia</label>
                         <select
@@ -102,7 +174,14 @@ export function ServicesPage({ services, categories, regions, loading, onRefresh
                     </div>
                     <button
                         className="btnSecondary btnFull"
-                        onClick={() => setFilters({ category: '', region: '', budgetMin: '', budgetMax: '', urgency: '' })}
+                        onClick={() => setFilters({
+                            category: fixedCategory ? (initialCategory || '') : '',
+                            uf: '',
+                            city: '',
+                            budgetMin: '',
+                            budgetMax: '',
+                            urgency: ''
+                        })}
                     >
                         Limpar filtros
                     </button>
@@ -125,9 +204,14 @@ export function ServicesPage({ services, categories, regions, loading, onRefresh
                             {filteredServices.map(service => (
                                 <div
                                     key={service.id}
-                                    className="serviceCard"
+                                    className={`serviceCard ${service.urgency === 'high' ? 'highlightedCard' : ''}`}
                                     onClick={() => openServiceDetail(service.id)}
                                 >
+                                    {service.urgency === 'high' && (
+                                        <div className="highlightBadge">
+                                            <span className="icon">⚡</span> Destaque
+                                        </div>
+                                    )}
                                     <div className="serviceCardHeader">
                                         <div className="serviceClient">
                                             <div className="clientAvatar">C</div>
@@ -136,6 +220,7 @@ export function ServicesPage({ services, categories, regions, loading, onRefresh
                                                 <div className="serviceTime">{formatTimeAgo(service.created_at)}</div>
                                             </div>
                                         </div>
+                                        {/* Hide urgency badge if already highlighted to avoid redundancy, or keep for clarity */}
                                         <span className={`badge ${urgencyClass(service.urgency)}`}>
                                             {urgencyLabel(service.urgency)}
                                         </span>

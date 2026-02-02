@@ -1,5 +1,6 @@
 import * as jwt from 'jsonwebtoken'
 import * as bcrypt from 'bcrypt'
+import { randomUUID } from 'crypto'
 import { config } from '../../config/unifiedConfig.js'
 import { pool } from '../../shared/database/connection.js'
 

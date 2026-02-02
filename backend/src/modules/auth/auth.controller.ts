@@ -1,4 +1,4 @@
-import { Request, Response } from 'express'
+import type { Request, Response } from 'express'
 import { BaseController } from '../../shared/base/BaseController.js'
 import { AuthService } from './auth.service.js'
 import { registerSchema, loginSchema } from './auth.schema.js'

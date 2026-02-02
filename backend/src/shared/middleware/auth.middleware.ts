@@ -1,8 +1,8 @@
-import { Request, Response, NextFunction } from 'express'
+import type { Request, Response, NextFunction } from 'express'
 import * as jwt from 'jsonwebtoken'
 import type { JwtPayload } from 'jsonwebtoken'
 import { config } from '../../config/unifiedConfig.js'
-import { AuthUser, AuthedRequest } from '../types/auth.js'
+import type { AuthUser, AuthedRequest } from '../types/auth.js'
 
 const jwtLib =
   ((jwt as unknown as { default?: typeof jwt }).default as typeof jwt | undefined) ?? jwt
@@ -26,7 +26,7 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction):
       return
     }
 
-    ;(req as AuthedRequest).user = { id: sub, role: role as AuthUser['role'] }
+    ; (req as AuthedRequest).user = { id: sub, role: role as AuthUser['role'] }
     next()
   } catch {
     res.status(401).json({ success: false, error: 'Token inválido' })

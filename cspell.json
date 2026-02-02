@@ -1,25 +1,37 @@
 {
-    "version": "0.2",
-    "language": "en,pt-BR",
-    "words": [
-        "desconhecido",
-        "serviço",
-        "habilidades",
-        "vitrine",
-        "usuário",
-        "profissional",
-        "propostas",
-        "assinaturas",
-        "erro",
-        "carregando",
-        "salvando",
-        "voltar",
-        "editar",
-        "perfil"
-    ],
-    "ignorePaths": [
-        "node_modules",
-        "dist",
-        "build"
-    ]
+  "version": "0.2",
+  "language": "en,pt,pt-BR",
+  "words": [
+    "projto",
+    "serviço",
+    "upsert",
+    "auth",
+    "hash",
+    "bcrypt",
+    "cors",
+    "dotenv",
+    "helmet",
+    "jsonwebtoken",
+    "multer",
+    "zod",
+    "postgres",
+    "pgsql",
+    "npx",
+    "npm",
+    "node",
+    "linux",
+    "windows",
+    "macos",
+    "texttim",
+    "module",
+    "syntax"
+  ],
+  "ignorePaths": [
+    "node_modules",
+    "dist",
+    "build",
+    "coverage",
+    ".git",
+    "package-lock.json"
+  ]
 }

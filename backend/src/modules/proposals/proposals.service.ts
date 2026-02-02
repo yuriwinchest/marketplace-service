@@ -1,12 +1,16 @@
-import { ProposalsRepository, ProposalEntity, ProposalWithDetails } from './proposals.repository.js'
-import { CreateProposalInput, UpdateProposalStatusInput } from './proposals.schema.js'
+import { ProposalsRepository } from './proposals.repository.js'
+import type { ProposalEntity, ProposalWithDetails } from './proposals.repository.js'
+import type { CreateProposalInput, UpdateProposalStatusInput } from './proposals.schema.js'
 import { SubscriptionsService } from '../subscriptions/subscriptions.service.js'
+
+import { NotificationsService } from '../notifications/notifications.service.js'
 
 export class ProposalsService {
   constructor(
     private repository: ProposalsRepository,
     private subscriptionsService: SubscriptionsService,
-  ) {}
+    private notificationsService: NotificationsService,
+  ) { }
 
   async create(
     userId: string,
@@ -31,7 +35,31 @@ export class ProposalsService {
       throw new Error('Assinatura ativa é necessária para enviar propostas')
     }
 
-    return this.repository.create(professionalId, input)
+    // Obter o ID do cliente dono da demanda
+    const { pool } = await import('../../shared/database/connection.js')
+    const requestResult = await pool.query<{ client_id: string; title: string }>(
+      `SELECT client_id, title FROM public.service_requests WHERE id = $1`,
+      [input.serviceRequestId]
+    )
+    const request = requestResult.rows[0]
+
+    const proposal = await this.repository.create(professionalId, input)
+
+    if (request) {
+      await this.notificationsService.notifyUser(
+        request.client_id,
+        'Nova Proposta Recebida',
+        `Você recebeu uma proposta para a demanda "${request.title}".`,
+        'PROPOSAL_RECEIVED',
+        {
+          serviceRequestId: input.serviceRequestId,
+          proposalId: proposal.id,
+          proposalValue: input.value
+        }
+      )
+    }
+
+    return proposal
   }
 
   async getByServiceRequest(serviceRequestId: string): Promise<ProposalWithDetails[]> {
@@ -50,8 +78,8 @@ export class ProposalsService {
 
     // Verificar se o cliente é dono da demanda
     const { pool } = await import('../../shared/database/connection.js')
-    const requestResult = await pool.query<{ client_id: string; status: string }>(
-      `SELECT client_id, status FROM public.service_requests WHERE id = $1`,
+    const requestResult = await pool.query<{ client_id: string; status: string; title: string }>(
+      `SELECT client_id, status, title FROM public.service_requests WHERE id = $1`,
       [proposal.service_request_id],
     )
 
@@ -69,7 +97,7 @@ export class ProposalsService {
     }
 
     // Transação: atualizar proposta e demanda
-    return this.repository.executeInTransaction(async (client) => {
+    const result = await this.repository.executeInTransaction(async (client) => {
       // Atualizar status da proposta
       const proposalResult = await client.query<ProposalEntity>(
         `UPDATE public.proposals
@@ -94,6 +122,20 @@ export class ProposalsService {
 
       return proposalResult.rows[0]
     })
+
+    // Notificar o profissional (fora da transação para não bloquear)
+    await this.notificationsService.notifyUser(
+      result.professional_id,
+      'Proposta Aceita! 🎉',
+      `Sua proposta para a demanda "${serviceRequest.title || 'Serviço'}" foi aceita! O contato do cliente foi liberado.`,
+      'PROPOSAL_ACCEPTED',
+      {
+        serviceRequestId: proposal.service_request_id,
+        proposalId: proposalId
+      }
+    )
+
+    return result
   }
 
   async rejectProposal(proposalId: string, clientId: string): Promise<ProposalEntity> {
@@ -113,7 +155,20 @@ export class ProposalsService {
       throw new Error('Você não tem permissão para rejeitar esta proposta')
     }
 
-    return this.repository.updateStatus(proposalId, { status: 'rejected' })
+    const result = await this.repository.updateStatus(proposalId, { status: 'rejected' })
+
+    await this.notificationsService.notifyUser(
+      proposal.professional_id,
+      'Proposta Rejeitada',
+      `Sua proposta foi rejeitada pelo cliente.`,
+      'PROPOSAL_REJECTED',
+      {
+        serviceRequestId: proposal.service_request_id,
+        proposalId: proposalId
+      }
+    )
+
+    return result
   }
 
   async cancelProposal(proposalId: string, professionalId: string): Promise<ProposalEntity> {

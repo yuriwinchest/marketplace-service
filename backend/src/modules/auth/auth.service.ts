@@ -1,7 +1,8 @@
 import * as jwt from 'jsonwebtoken'
 import { config } from '../../config/unifiedConfig.js'
-import { AuthRepository, UserEntity } from './auth.repository.js'
-import { RegisterInput, LoginInput } from './auth.schema.js'
+import { AuthRepository } from './auth.repository.js'
+import type { UserEntity } from './auth.repository.js'
+import type { RegisterInput, LoginInput } from './auth.schema.js'
 import { AuthRefreshService } from './auth.refresh.service.js'
 
 const jwtLib =
@@ -17,7 +18,7 @@ export class AuthService {
   constructor(
     private repository: AuthRepository,
     private refreshService: AuthRefreshService,
-  ) {}
+  ) { }
 
   async register(input: RegisterInput): Promise<Omit<UserEntity, 'password_hash'>> {
     const existingUser = await this.repository.findByEmail(input.email)

@@ -1,8 +1,8 @@
-import { Request, Response } from 'express'
+import type { Request, Response } from 'express'
 import { BaseController } from '../../shared/base/BaseController.js'
 import { SubscriptionsService } from './subscriptions.service.js'
 import { createSubscriptionSchema, updateSubscriptionStatusSchema } from './subscriptions.schema.js'
-import { AuthedRequest } from '../../shared/types/auth.js'
+import type { AuthedRequest } from '../../shared/types/auth.js'
 
 export class SubscriptionsController extends BaseController {
   constructor(private subscriptionsService: SubscriptionsService) {

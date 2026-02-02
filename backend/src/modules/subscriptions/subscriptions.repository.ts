@@ -1,5 +1,5 @@
 import { pool } from '../../shared/database/connection.js'
-import { CreateSubscriptionInput, UpdateSubscriptionStatusInput } from './subscriptions.schema.js'
+import type { CreateSubscriptionInput, UpdateSubscriptionStatusInput } from './subscriptions.schema.js'
 
 export interface SubscriptionEntity {
   id: string

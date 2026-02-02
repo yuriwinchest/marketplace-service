@@ -10,7 +10,9 @@ const router = Router()
 const proposalsRepository = new ProposalsRepository()
 const subscriptionsRepository = new SubscriptionsRepository()
 const subscriptionsService = new SubscriptionsService(subscriptionsRepository)
-const proposalsService = new ProposalsService(proposalsRepository, subscriptionsService)
+import { notificationsService } from '../notifications/notifications.routes.js'
+
+const proposalsService = new ProposalsService(proposalsRepository, subscriptionsService, notificationsService)
 const controller = new ProposalsController(proposalsService)
 
 router.post('/', authMiddleware, (req, res) => controller.create(req as any, res))

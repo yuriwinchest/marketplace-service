@@ -1,5 +1,5 @@
 
-import logo from '../assets/logo/logosemfundo.png'
+
 import type { View, AuthState } from '../types'
 
 interface HeaderProps {
@@ -14,7 +14,7 @@ export function Header({ view, setView, auth, onLogout }: HeaderProps) {
         <header className="header">
             <div className="headerInner">
                 <div className="logo" onClick={() => setView(auth.state === 'authenticated' ? 'dashboard' : 'home')}>
-                    <img className="logoIcon" src={logo} alt="Logo ServicoJa" />
+                    <img className="logoIcon" src="/favicon.png" alt="Logo ServicoJa" />
                     <span className="logoText">ServicoJa</span>
                 </div>
 

@@ -1,5 +1,5 @@
 import { pool } from '../../shared/database/connection.js'
-import { CreateRequestInput } from './services.schema.js'
+import type { CreateRequestInput } from './services.schema.js'
 
 export interface ServiceRequestEntity {
   id: string
@@ -68,7 +68,9 @@ export class ServicesRepository {
     return result.rows
   }
 
-  async findOpenRequests(): Promise<ServiceRequestEntity[]> {
+  async findOpenRequests(
+    pagination: { page: number; limit: number } = { page: 1, limit: 20 },
+  ): Promise<ServiceRequestEntity[]> {
     const result = await pool.query<ServiceRequestEntity>(
       `SELECT
         r.id,
@@ -85,9 +87,40 @@ export class ServicesRepository {
        LEFT JOIN public.categories c ON c.id = r.category_id
        LEFT JOIN public.regions g ON g.id = r.region_id
        WHERE r.status = 'open'
-       ORDER BY r.created_at DESC
-       LIMIT 50`,
+       ORDER BY 
+        CASE WHEN r.urgency = 'high' THEN 1 ELSE 2 END ASC,
+        r.created_at DESC
+       LIMIT $1 OFFSET $2`,
+      [pagination.limit, (pagination.page - 1) * pagination.limit],
     )
+
     return result.rows
+  }
+
+  async getProposalStats(serviceRequestId: string) {
+    const statsResult = await pool.query<{ count: string; avg_value: string }>(
+      `SELECT 
+        COUNT(*)::text as count, 
+        AVG(value::numeric)::text as avg_value 
+       FROM public.proposals 
+       WHERE service_request_id = $1 AND status != 'cancelled'`,
+      [serviceRequestId]
+    )
+
+    const professionalsResult = await pool.query<{ name: string; avatar_url: string | null }>(
+      `SELECT DISTINCT u.name, u.avatar_url
+       FROM public.proposals p
+       JOIN public.professional_profiles pp ON pp.id = p.professional_id
+       JOIN public.users u ON u.id = pp.user_id
+       WHERE p.service_request_id = $1 AND p.status != 'cancelled'
+       LIMIT 5`,
+      [serviceRequestId]
+    )
+
+    return {
+      count: parseInt(statsResult.rows[0]?.count || '0', 10),
+      average_value: parseFloat(statsResult.rows[0]?.avg_value || '0'),
+      professionals: professionalsResult.rows
+    }
   }
 }

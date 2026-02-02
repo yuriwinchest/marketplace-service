@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from 'express'
+import type { Request, Response, NextFunction } from 'express'
 
 interface RateLimitStore {
   [key: string]: number[]
@@ -74,6 +74,6 @@ export const rateLimitMiddleware = (
 }
 
 // Middlewares pré-configurados
-export const generalRateLimit = rateLimitMiddleware(100, 60000) // 100 req/min
-export const strictRateLimit = rateLimitMiddleware(10, 60000) // 10 req/min
-export const authRateLimit = rateLimitMiddleware(5, 60000) // 5 req/min para auth
+export const generalRateLimit = rateLimitMiddleware(1000, 60000) // 1000 req/min (Relaxed for dev)
+export const strictRateLimit = rateLimitMiddleware(100, 60000) // 100 req/min (Relaxed for dev)
+export const authRateLimit = rateLimitMiddleware(100, 60000) // 100 req/min (Relaxed for dev)

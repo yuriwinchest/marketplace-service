@@ -8,6 +8,9 @@ export const updateProfileSchema = z.object({
   locationScope: z.enum(['national', 'state', 'city']).optional(),
   uf: z.string().length(2).optional(),
   city: z.string().optional(),
+  isRemote: z.boolean().optional(),
+  email: z.string().email().optional(),
+  whatsapp: z.string().optional(),
 })
 
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>

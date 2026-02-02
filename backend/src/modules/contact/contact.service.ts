@@ -1,12 +1,13 @@
-import { ContactRepository, ContactData } from './contact.repository.js'
-import { GetContactInput } from './contact.schema.js'
+import { ContactRepository } from './contact.repository.js'
+import type { ContactData } from './contact.repository.js'
+import type { GetContactInput } from './contact.schema.js'
 import { SubscriptionsService } from '../subscriptions/subscriptions.service.js'
 
 export class ContactService {
   constructor(
     private repository: ContactRepository,
     private subscriptionsService: SubscriptionsService,
-  ) {}
+  ) { }
 
   async getContact(
     requesterId: string,

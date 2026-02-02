@@ -21,7 +21,7 @@ export const upload = multer({
   storage,
   limits: { fileSize: config.uploads.maxFileSize },
   fileFilter: (_req, file, cb) => {
-    if (config.uploads.allowedMimeTypes.includes(file.mimetype)) {
+    if ((config.uploads.allowedMimeTypes as readonly string[]).includes(file.mimetype)) {
       cb(null, true)
     } else {
       cb(new Error('Tipo de arquivo não permitido'))

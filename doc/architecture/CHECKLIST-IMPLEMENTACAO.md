@@ -9,6 +9,7 @@ Todos os módulos críticos foram implementados seguindo a documentação de arq
 ## ✅ 1. Migrations do Banco de Dados
 
 ### Migration 006: Proposals e Subscriptions
+
 - [x] Tabela `proposals` criada
 - [x] Tabela `subscriptions` criada
 - [x] Tabelas `professional_categories` e `professional_regions` criadas
@@ -18,6 +19,7 @@ Todos os módulos críticos foram implementados seguindo a documentação de arq
 - [x] Constraints de integridade aplicadas
 
 ### Migration 007: Row Level Security
+
 - [x] RLS habilitado em todas as tabelas sensíveis
 - [x] Políticas criadas para cada operação (SELECT, INSERT, UPDATE)
 - [x] Documentação sobre uso de `service_role`
@@ -28,7 +30,8 @@ Todos os módulos críticos foram implementados seguindo a documentação de arq
 
 **Skill:** `stripe-integration`
 
-### Implementação:
+### Implementação
+
 - [x] Schema de validação (Zod)
 - [x] Repository com acesso ao banco
 - [x] Service com regras de negócio
@@ -37,13 +40,15 @@ Todos os módulos críticos foram implementados seguindo a documentação de arq
 - [x] Integração com `professional_profiles` (sincronização de status)
 - [x] Método `isActive()` para validação
 
-### Funcionalidades:
+### Funcionalidades
+
 - [x] Criar assinatura
 - [x] Obter assinatura do profissional
 - [x] Webhook do Stripe
 - [x] Verificar assinatura ativa
 
-### Endpoints:
+### Endpoints
+
 - [x] `GET /api/subscriptions/me`
 - [x] `POST /api/subscriptions`
 - [x] `POST /api/subscriptions/webhook`
@@ -54,7 +59,8 @@ Todos os módulos críticos foram implementados seguindo a documentação de arq
 
 **Skill:** `backend-patterns` (transações, validações)
 
-### Implementação:
+### Implementação
+
 - [x] Schema de validação (Zod)
 - [x] Repository com transações
 - [x] Service com todas as regras de negócio
@@ -62,7 +68,8 @@ Todos os módulos críticos foram implementados seguindo a documentação de arq
 - [x] Routes configuradas
 - [x] Integração com `subscriptions` (validação de assinatura)
 
-### Funcionalidades:
+### Funcionalidades
+
 - [x] Criar proposta (com validações)
 - [x] Listar propostas de uma demanda (cliente)
 - [x] Listar propostas do profissional
@@ -73,7 +80,8 @@ Todos os módulos críticos foram implementados seguindo a documentação de arq
 - [x] Evitar propostas duplicadas
 - [x] Validar status da demanda
 
-### Endpoints:
+### Endpoints
+
 - [x] `POST /api/proposals`
 - [x] `GET /api/proposals/service-request/:id`
 - [x] `GET /api/proposals/me`
@@ -81,7 +89,8 @@ Todos os módulos críticos foram implementados seguindo a documentação de arq
 - [x] `POST /api/proposals/:id/reject`
 - [x] `POST /api/proposals/:id/cancel`
 
-### Transações:
+### Transações
+
 - [x] Aceitar proposta usa transação PostgreSQL
 
 ---
@@ -90,7 +99,8 @@ Todos os módulos críticos foram implementados seguindo a documentação de arq
 
 **Skill:** `backend-patterns` (segurança, validações)
 
-### Implementação:
+### Implementação
+
 - [x] Schema de validação (Zod)
 - [x] Repository com acesso ao banco
 - [x] Service com regras de liberação
@@ -98,7 +108,8 @@ Todos os módulos críticos foram implementados seguindo a documentação de arq
 - [x] Routes configuradas
 - [x] Integração com `proposals` e `subscriptions`
 
-### Funcionalidades:
+### Funcionalidades
+
 - [x] Obter dados de contato
 - [x] Validar condições de liberação:
   - [x] Proposta aceita (demanda em `matched`)
@@ -106,10 +117,12 @@ Todos os módulos críticos foram implementados seguindo a documentação de arq
 - [x] Retornar dados sensíveis apenas se autorizado
 - [x] Nunca expor contato em listagens
 
-### Endpoints:
+### Endpoints
+
 - [x] `GET /api/contact?userId=...&serviceRequestId=...`
 
-### Regras:
+### Regras
+
 - [x] Contato bloqueado por padrão
 - [x] Liberação apenas sob condições específicas
 - [x] Validação em múltiplas camadas
@@ -120,7 +133,8 @@ Todos os módulos críticos foram implementados seguindo a documentação de arq
 
 **Skill:** `backend-patterns` (rate limiting pattern)
 
-### Implementação:
+### Implementação
+
 - [x] Middleware de rate limiting criado
 - [x] Rate limiter in-memory
 - [x] Middlewares pré-configurados:
@@ -128,7 +142,8 @@ Todos os módulos críticos foram implementados seguindo a documentação de arq
   - [x] `strictRateLimit` (10 req/min)
   - [x] `authRateLimit` (5 req/min)
 
-### Aplicado em:
+### Aplicado em
+
 - [x] Rotas de autenticação (`/api/auth`)
 - [x] Todas as outras rotas da API
 
@@ -138,7 +153,8 @@ Todos os módulos críticos foram implementados seguindo a documentação de arq
 
 **Skill:** `backend-patterns` (JWT, segurança)
 
-### Implementação:
+### Implementação
+
 - [x] Service de refresh tokens criado
 - [x] Geração de refresh token (7 dias)
 - [x] Verificação de refresh token
@@ -146,12 +162,14 @@ Todos os módulos críticos foram implementados seguindo a documentação de arq
 - [x] Revogação de refresh token
 - [x] Access token com expiração curta (15m)
 
-### Mudanças:
+### Mudanças
+
 - [x] `auth.service.ts` - Gera refresh token no login
 - [x] `auth.controller.ts` - Endpoint `/refresh`
 - [x] `auth.routes.ts` - Rota adicionada
 
-### Endpoints:
+### Endpoints
+
 - [x] `POST /api/auth/refresh`
 
 ---
@@ -160,7 +178,8 @@ Todos os módulos críticos foram implementados seguindo a documentação de arq
 
 **Skill:** `database-migration`
 
-### Implementação:
+### Implementação
+
 - [x] Migration 007 criada
 - [x] RLS habilitado em 8 tabelas:
   - [x] `users`
@@ -178,7 +197,8 @@ Todos os módulos críticos foram implementados seguindo a documentação de arq
 
 ## ✅ 8. Integração no Server.ts
 
-### Rotas adicionadas:
+### Rotas adicionadas
+
 - [x] `/api/subscriptions`
 - [x] `/api/proposals`
 - [x] `/api/contact`
@@ -188,14 +208,16 @@ Todos os módulos críticos foram implementados seguindo a documentação de arq
 
 ## 📊 Estatísticas da Implementação
 
-### Arquivos Criados:
+### Arquivos Criados
+
 - **Migrations:** 2 arquivos SQL
 - **Módulos:** 3 módulos completos (subscriptions, proposals, contact)
 - **Middlewares:** 1 middleware (rate limiting)
 - **Services:** 1 service adicional (auth refresh)
 - **Total:** ~25 arquivos novos
 
-### Linhas de Código:
+### Linhas de Código
+
 - Todos os arquivos respeitam os limites:
   - Controllers: ≤ 200 linhas ✅
   - Services: ≤ 300 linhas ✅
@@ -205,7 +227,8 @@ Todos os módulos críticos foram implementados seguindo a documentação de arq
 
 ## 🔍 Validações Implementadas
 
-### Permissões:
+### Permissões
+
 - [x] Apenas profissionais podem criar propostas
 - [x] Apenas profissionais com assinatura ativa podem criar propostas
 - [x] Apenas clientes podem aceitar/rejeitar propostas
@@ -213,7 +236,8 @@ Todos os módulos críticos foram implementados seguindo a documentação de arq
 - [x] Contato bloqueado por padrão
 - [x] Contato liberado apenas sob condições
 
-### Validações de Negócio:
+### Validações de Negócio
+
 - [x] Proposta duplicada não permitida
 - [x] Apenas demandas abertas podem receber propostas
 - [x] Apenas demandas abertas podem ter propostas aceitas
@@ -224,24 +248,28 @@ Todos os módulos críticos foram implementados seguindo a documentação de arq
 
 ## 🎯 Conformidade com Documentação
 
-### Fluxo de Propostas (01d):
+### Fluxo de Propostas (01d)
+
 - [x] ✅ Todas as etapas implementadas
 - [x] ✅ Validações conforme documentado
 - [x] ✅ Transação ao aceitar
 - [x] ✅ Estados: pending, accepted, rejected, cancelled
 
-### Fluxo de Contato (01e):
+### Fluxo de Contato (01e)
+
 - [x] ✅ Contato bloqueado por padrão
 - [x] ✅ Condições de liberação implementadas
 - [x] ✅ Dados sensíveis protegidos
 - [x] ✅ Validação em múltiplas camadas
 
-### Matriz de Permissões (01b):
+### Matriz de Permissões (01b)
+
 - [x] ✅ Regras de visibilidade implementadas
 - [x] ✅ Validação de assinatura antes de propostas
 - [x] ✅ Contato controlado por regras
 
-### Banco de Dados (09):
+### Banco de Dados (09)
+
 - [x] ✅ UUID como PK
 - [x] ✅ RLS habilitado
 - [x] ✅ Índices em FKs
@@ -251,17 +279,20 @@ Todos os módulos críticos foram implementados seguindo a documentação de arq
 
 ## ⚠️ Observações Importantes
 
-### Stripe Integration:
+### Stripe Integration
+
 - ⚠️ Estrutura criada, mas integração real com Stripe API precisa ser completada
 - ⚠️ Webhook endpoint criado, mas validação de assinatura Stripe precisa ser implementada
 - ⚠️ Variáveis de ambiente do Stripe precisam ser adicionadas ao `unifiedConfig`
 
-### RLS:
+### RLS
+
 - ⚠️ Políticas usam `using (true)` porque backend usa `service_role`
 - ⚠️ Para produção com Supabase Auth, migrar para `auth.uid()`
 - ⚠️ RLS atua como camada extra, lógica principal no backend
 
-### Status da Demanda:
+### Status da Demanda
+
 - ⚠️ Banco usa `matched` ao invés de `in_progress` (conforme migration 001)
 - ⚠️ Código usa `matched` que é equivalente a `in_progress`
 
@@ -269,19 +300,40 @@ Todos os módulos críticos foram implementados seguindo a documentação de arq
 
 ## 🚀 Próximos Passos (Opcional)
 
-### Integração Stripe:
+### Integração Stripe
+
 1. Adicionar variáveis Stripe ao `unifiedConfig`
 2. Instalar SDK do Stripe (`stripe` package)
 3. Implementar criação de checkout session
 4. Implementar validação de webhook signature
 5. Testar fluxo completo
 
-### Melhorias:
-1. Adicionar logging estruturado
+### Melhorias
+
+1. ✅ [FEITO] Adicionar logging estruturado (Winston)
 2. Implementar testes unitários
 3. Adicionar validação de visibilidade de profissionais
 4. Implementar busca de profissionais para clientes
-5. Adicionar notificações
+5. ✅ [FEITO] Adicionar notificações
+
+---
+
+## ✅ 9. Módulo Notifications
+
+**Skill:** `backend-patterns` (events)
+
+### Implementação
+
+- [x] Schema de validação
+- [x] Repository e Service
+- [x] Controller e Routes
+- [x] Migration 010 (Tabela `notifications`)
+- [x] Integração com `proposals` (notificar ao criar/aceitar)
+
+### Endpoints
+
+- [x] `GET /api/notifications`
+- [x] `PATCH /api/notifications/:id/read`
 
 ---
 

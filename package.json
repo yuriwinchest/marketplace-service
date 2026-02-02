@@ -2,7 +2,10 @@
   "name": "projto-servico",
   "private": true,
   "scripts": {
-    "dev": "powershell -NoProfile -Command \"Start-Process pwsh -WorkingDirectory 'backend' -ArgumentList '-NoProfile','-Command','npm run dev'; Start-Process pwsh -WorkingDirectory 'frontend' -ArgumentList '-NoProfile','-Command','npm run dev'\""
+    "dev": "powershell -NoProfile -Command \"Start-Process pwsh -WorkingDirectory 'backend' -ArgumentList '-NoProfile','-Command','npm run dev'; Start-Process pwsh -WorkingDirectory 'frontend' -ArgumentList '-NoProfile','-Command','npm run dev'\"",
+    "lint:spell": "cspell \"**/*\""
+  },
+  "devDependencies": {
+    "cspell": "^9.6.2"
   }
 }
-

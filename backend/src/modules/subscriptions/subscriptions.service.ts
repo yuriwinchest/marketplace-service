@@ -1,5 +1,6 @@
-import { SubscriptionsRepository, SubscriptionEntity } from './subscriptions.repository.js'
-import { CreateSubscriptionInput, UpdateSubscriptionStatusInput } from './subscriptions.schema.js'
+import { SubscriptionsRepository } from './subscriptions.repository.js'
+import type { SubscriptionEntity } from './subscriptions.repository.js'
+import type { CreateSubscriptionInput, UpdateSubscriptionStatusInput } from './subscriptions.schema.js'
 
 export class SubscriptionsService {
   constructor(private repository: SubscriptionsRepository) {}

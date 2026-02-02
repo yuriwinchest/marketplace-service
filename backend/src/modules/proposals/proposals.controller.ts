@@ -1,8 +1,8 @@
-import { Response } from 'express'
+import type { Response } from 'express'
 import { BaseController } from '../../shared/base/BaseController.js'
 import { ProposalsService } from './proposals.service.js'
 import { createProposalSchema, updateProposalStatusSchema } from './proposals.schema.js'
-import { AuthedRequest } from '../../shared/types/auth.js'
+import type { AuthedRequest } from '../../shared/types/auth.js'
 
 export class ProposalsController extends BaseController {
   constructor(private proposalsService: ProposalsService) {
@@ -16,7 +16,8 @@ export class ProposalsController extends BaseController {
 
     const parsed = createProposalSchema.safeParse(req.body)
     if (!parsed.success) {
-      return this.error(res, 'Dados inválidos')
+      const errorMessage = parsed.error.errors.map(e => e.message).join(', ')
+      return this.error(res, `Dados inválidos: ${errorMessage}`)
     }
 
     try {
@@ -52,7 +53,7 @@ export class ProposalsController extends BaseController {
   }
 
   async getByServiceRequest(req: AuthedRequest, res: Response): Promise<Response> {
-    const serviceRequestId = req.params.serviceRequestId
+    const serviceRequestId = req.params.serviceRequestId as string
 
     try {
       // Verificar se o usuário é dono da demanda
@@ -101,7 +102,7 @@ export class ProposalsController extends BaseController {
   }
 
   async accept(req: AuthedRequest, res: Response): Promise<Response> {
-    const proposalId = req.params.id
+    const proposalId = req.params.id as string
 
     try {
       const proposal = await this.proposalsService.acceptProposal(proposalId, req.user.id)
@@ -116,7 +117,7 @@ export class ProposalsController extends BaseController {
   }
 
   async reject(req: AuthedRequest, res: Response): Promise<Response> {
-    const proposalId = req.params.id
+    const proposalId = req.params.id as string
 
     try {
       const proposal = await this.proposalsService.rejectProposal(proposalId, req.user.id)
@@ -135,7 +136,7 @@ export class ProposalsController extends BaseController {
       return this.forbidden(res, 'Apenas profissionais podem cancelar propostas')
     }
 
-    const proposalId = req.params.id
+    const proposalId = req.params.id as string
 
     try {
       const { pool } = await import('../../shared/database/connection.js')

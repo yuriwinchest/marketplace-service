@@ -1,4 +1,4 @@
-import { Request, Response } from 'express'
+import type { Request, Response } from 'express'
 import { BaseController } from '../../shared/base/BaseController.js'
 import { RegionsService } from './regions.service.js'
 

@@ -1,8 +1,8 @@
-import { Response } from 'express'
+import type { Response } from 'express'
 import { BaseController } from '../../shared/base/BaseController.js'
 import { ContactService } from './contact.service.js'
 import { getContactSchema } from './contact.schema.js'
-import { AuthedRequest } from '../../shared/types/auth.js'
+import type { AuthedRequest } from '../../shared/types/auth.js'
 
 export class ContactController extends BaseController {
   constructor(private contactService: ContactService) {

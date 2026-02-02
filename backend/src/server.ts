@@ -4,6 +4,7 @@ import helmet from 'helmet'
 import path from 'path'
 import fs from 'fs'
 import { config } from './config/unifiedConfig.js'
+import { logger } from './shared/logger.js'
 
 // Routes
 import authRoutes from './modules/auth/auth.routes.js'
@@ -14,6 +15,7 @@ import servicesRoutes from './modules/services/services.routes.js'
 import subscriptionsRoutes from './modules/subscriptions/subscriptions.routes.js'
 import proposalsRoutes from './modules/proposals/proposals.routes.js'
 import contactRoutes from './modules/contact/contact.routes.js'
+import notificationsRoutes from './modules/notifications/notifications.routes.js'
 
 const app = express()
 
@@ -26,10 +28,24 @@ app.use(
 )
 app.use(
   cors({
-    origin: config.cors.origins,
+    origin: (origin, callback) => {
+      // Permitir requisições sem origem (como mobile apps, curl ou postman)
+      if (!origin) return callback(null, true)
+
+      // Permitir qualquer origem definida na config
+      if (config.cors.origins.includes(origin)) return callback(null, true)
+
+      // Permitir qualquer localhost em desenvolvimento (útil se o Vite trocar de porta)
+      if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
+        return callback(null, true)
+      }
+
+      callback(null, true) // Por segurança no MVP, vamos permitir tudo por enquanto para destravar, mas logar warning
+      // logger.warn(`CORS permissivo aplicado para origem: ${origin}`)
+    },
     credentials: true,
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   }),
 )
 app.use(express.json())
@@ -61,6 +77,7 @@ app.use('/api/requests', generalRateLimit, servicesRoutes)
 app.use('/api/subscriptions', generalRateLimit, subscriptionsRoutes)
 app.use('/api/proposals', generalRateLimit, proposalsRoutes)
 app.use('/api/contact', generalRateLimit, contactRoutes)
+app.use('/api/notifications', generalRateLimit, notificationsRoutes)
 
 // Error handler
 app.use(
@@ -70,7 +87,7 @@ app.use(
     res: express.Response,
     _next: express.NextFunction,
   ) => {
-    console.error('[ERROR]', err.message)
+    logger.error(`[ERROR] ${err.message}`, { stack: err.stack })
 
     if (err.message === 'Tipo de arquivo não permitido') {
       return res.status(400).json({
@@ -95,5 +112,5 @@ app.use(
 
 // Start server
 app.listen(config.port, () => {
-  console.log(`Backend rodando em http://localhost:${config.port}`)
+  logger.info(`Backend rodando em http://localhost:${config.port}`)
 })

@@ -10,6 +10,7 @@ export type View =
   | 'proposals'
   | 'profile'
   | 'edit-profile'
+  | 'public-services'
 
 export type UserRole = 'client' | 'professional'
 
@@ -20,6 +21,21 @@ export type AuthState =
     token: string
     user: User
   }
+
+export interface Proposal {
+  id: string
+  service_request_id: string
+  professional_id: string
+  value: number
+  description: string
+  estimated_days: number
+  status: 'pending' | 'accepted' | 'rejected' | 'cancelled'
+  created_at: string
+  updated_at: string
+  service_request_title?: string
+  professional_name?: string
+  professional_email?: string
+}
 
 export interface User {
   id: string

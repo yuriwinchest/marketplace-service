@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { AuthState, Category, View } from '../types'
 import { LocationSelector } from '../components/LocationSelector'
 
@@ -8,6 +8,67 @@ interface CreateServicePageProps {
     setView: (view: View) => void
     onServiceCreated: () => void
     apiFetch: (path: string, init?: RequestInit) => Promise<Response>
+}
+
+function CategorySelector({ categories, value, onChange }: { categories: Category[], value: string, onChange: (id: string) => void }) {
+    const [display, setDisplay] = useState('')
+    const [isOpen, setIsOpen] = useState(false)
+
+    // Sync display with selected value (e.g. initial load or external change)
+    useEffect(() => {
+        if (value) {
+            const cat = categories.find(c => c.id === value)
+            if (cat) setDisplay(cat.name)
+        } else {
+            // Only clear display if user hasn't typed anything yet? 
+            // actually if value is empty, display should be empty or what user is typing.
+            // But we don't want to overwrite user typing if they are searching.
+            // Simple logic: if value is effectively invalid, we let user type.
+        }
+    }, [value, categories])
+
+    const filtered = categories.filter(c =>
+        c.name.toLowerCase().includes(display.toLowerCase())
+    )
+
+    return (
+        <div className="searchableSelect">
+            <input
+                type="text"
+                value={display}
+                onChange={e => {
+                    setDisplay(e.target.value)
+                    setIsOpen(true)
+                    // If user clears input, allow "empty" but don't unset logic unless strict
+                    if (e.target.value === '') onChange('')
+                }}
+                onFocus={() => setIsOpen(true)}
+                onBlur={() => setTimeout(() => setIsOpen(false), 200)}
+                placeholder="Busque uma categoria... (ex: Pedreiro, Design)"
+                className="categoryInput" // Optional extra class
+            />
+            {isOpen && (
+                <div className="dropdownOptions">
+                    {filtered.map(c => (
+                        <div
+                            key={c.id}
+                            className="dropdownOption"
+                            onClick={() => {
+                                onChange(c.id)
+                                setDisplay(c.name)
+                                setIsOpen(false)
+                            }}
+                        >
+                            {c.name}
+                        </div>
+                    ))}
+                    {filtered.length === 0 && (
+                        <div className="dropdownOption disabled">Nenhuma categoria encontrada</div>
+                    )}
+                </div>
+            )}
+        </div>
+    )
 }
 
 export function CreateServicePage({ auth, categories, setView, onServiceCreated, apiFetch }: CreateServicePageProps) {
@@ -96,12 +157,11 @@ export function CreateServicePage({ auth, categories, setView, onServiceCreated,
                     <div className="formRow">
                         <div className="formGroup">
                             <label>Categoria</label>
-                            <select value={category} onChange={e => setCategory(e.target.value)}>
-                                <option value="">Selecione</option>
-                                {categories.map(c => (
-                                    <option key={c.id} value={c.id}>{c.name}</option>
-                                ))}
-                            </select>
+                            <CategorySelector
+                                categories={categories}
+                                value={category}
+                                onChange={setCategory}
+                            />
                         </div>
                     </div>
 

@@ -11,10 +11,10 @@ export const config = {
     port: Number(process.env.DB_PORT ?? '5432'),
     name: process.env.DB_NAME ?? 'postgres',
     user: process.env.DB_USER ?? 'postgres',
-    password: process.env.DB_PASSWORD ?? '',
+    password: process.env.DB_PASSWORD ?? process.env.senh ?? '',
   },
   cors: {
-    origins: ['http://localhost:8080', 'http://127.0.0.1:8080'],
+    origins: ['http://localhost:8080', 'http://127.0.0.1:8080', 'http://localhost:5173', 'http://localhost:3000', 'http://localhost:5174'],
   },
   uploads: {
     maxFileSize: 5 * 1024 * 1024, // 5MB

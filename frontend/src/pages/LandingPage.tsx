@@ -6,9 +6,10 @@ interface LandingPageProps {
     setView: (view: View) => void
     categories: Category[]
     regions: Region[]
+    setSelectedCategoryId: (id: string | null) => void
 }
 
-export function LandingPage({ setView, categories, regions }: LandingPageProps) {
+export function LandingPage({ setView, categories, regions, setSelectedCategoryId }: LandingPageProps) {
     const [searchTerm, setSearchTerm] = useState('')
 
     const filteredCategories = categories.filter(cat =>
@@ -79,7 +80,10 @@ export function LandingPage({ setView, categories, regions }: LandingPageProps) 
                     <h2 className="sectionTitle">Categorias disponiveis</h2>
                     <div className="categoriesGrid">
                         {filteredCategories.map(cat => (
-                            <div key={cat.id} className="categoryCard" onClick={() => setView('register')}>
+                            <div key={cat.id} className="categoryCard" onClick={() => {
+                                setSelectedCategoryId(cat.id)
+                                setView('public-services')
+                            }}>
                                 <span className="categoryIcon">{categoryIcons[cat.name] || '🔨'}</span>
                                 <span className="categoryName">{cat.name}</span>
                             </div>
@@ -90,21 +94,26 @@ export function LandingPage({ setView, categories, regions }: LandingPageProps) 
 
             <section className="howSection">
                 <h2 className="sectionTitle">Como funciona</h2>
-                <div className="stepsGrid">
+                <div className="stepsGrid" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
                     <div className="stepCard">
                         <div className="stepNum">1</div>
-                        <h3>Publique seu projeto</h3>
-                        <p>Descreva o que precisa, defina orcamento e prazo.</p>
+                        <h3>Crie sua Conta</h3>
+                        <p>Cadastre-se para acessar profissionais qualificados.</p>
                     </div>
                     <div className="stepCard">
                         <div className="stepNum">2</div>
-                        <h3>Receba propostas</h3>
-                        <p>Freelancers qualificados enviarao orcamentos.</p>
+                        <h3>Publique seu Projeto</h3>
+                        <p>Escolha entre publicação normal ou <strong>Destaque</strong> para aparecer no topo e contratar mais rápido.</p>
                     </div>
                     <div className="stepCard">
                         <div className="stepNum">3</div>
-                        <h3>Contrate e pague</h3>
-                        <p>Escolha o melhor e realize o pagamento com seguranca.</p>
+                        <h3>Receba Propostas</h3>
+                        <p>Freelancers enviarão orçamentos. Compare perfis e avaliações.</p>
+                    </div>
+                    <div className="stepCard">
+                        <div className="stepNum">4</div>
+                        <h3>Contrate</h3>
+                        <p>Escolha o melhor profissional e combine o serviço.</p>
                     </div>
                 </div>
             </section>

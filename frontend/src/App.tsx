@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import './App.css'
 import { Header } from './components/Header'
+import { Footer } from './components/Footer'
 import { LandingPage } from './pages/LandingPage'
 import { LoginPage } from './pages/LoginPage'
 import { RegisterPage } from './pages/RegisterPage'
@@ -17,17 +18,12 @@ import { ServiceDetailPage } from './pages/ServiceDetailPage'
 
 
 
-import type { View, AuthState, User, Profile, Category, Region, Service } from './types'
-import { formatDate, formatCurrency, urgencyLabel, urgencyClass, statusLabel, statusClass, formatLocation } from './utils/formatters'
-
-
-
-
-
+import type { View, AuthState, User, Category, Region, Service } from './types'
 
 function App() {
   const [view, setView] = useState<View>('home')
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null)
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null)
 
   const apiBaseUrl = 'http://localhost:5000'
 
@@ -85,31 +81,43 @@ function App() {
 
   const loadPublicData = useCallback(async () => {
     try {
+      console.log('Carregando dados públicos...')
       const [catRes, regRes] = await Promise.all([
         apiFetch('/api/categories', { method: 'GET' }),
         apiFetch('/api/regions', { method: 'GET' }),
       ])
+
       if (catRes.ok) {
-        const data = (await catRes.json()) as { items: Category[] }
-        setCategories(data.items || [])
+        const json = await catRes.json()
+        const items = json.data?.items || json.items || []
+        console.log('Categorias carregadas:', items.length)
+        setCategories(items)
+      } else {
+        console.error('Erro ao carregar categorias:', catRes.status)
       }
+
       if (regRes.ok) {
-        const data = (await regRes.json()) as { items: Region[] }
-        setRegions(data.items || [])
+        const json = await regRes.json()
+        const items = json.data?.items || json.items || []
+        console.log('Regiões carregadas:', items.length)
+        setRegions(items)
       }
-    } catch {
-      // silent
+    } catch (error) {
+      console.error('Erro na carga de dados públicos:', error)
     }
   }, [apiFetch])
 
   const loadServices = useCallback(async () => {
-    if (auth.state !== 'authenticated') return
+    // Permitir carregar se autenticado OU explicitamente no modo publico
+    // (A checagem de view dentro do useCallback pode ser tricky se view nao for dependencia, 
+    // mas aqui o backend endpoint /open agora eh publico)
     setLoading(true)
     try {
       const res = await apiFetch('/api/requests/open', { method: 'GET' })
       if (res.ok) {
-        const data = (await res.json()) as { items: Service[] }
-        setServices(data.items || [])
+        const json = await res.json()
+        const items = json.data?.items || json.items || []
+        setServices(items)
       }
     } catch {
       // silent
@@ -123,8 +131,9 @@ function App() {
     try {
       const res = await apiFetch('/api/requests', { method: 'GET' })
       if (res.ok) {
-        const data = (await res.json()) as { items: Service[] }
-        setMyServices(data.items || [])
+        const json = await res.json()
+        const items = json.data?.items || json.items || []
+        setMyServices(items)
       }
     } catch {
       // silent
@@ -136,11 +145,13 @@ function App() {
   }, [loadPublicData])
 
   useEffect(() => {
-    if (auth.state === 'authenticated') {
+    if (auth.state === 'authenticated' || view === 'public-services') {
       void loadServices()
+    }
+    if (auth.state === 'authenticated') {
       void loadMyServices()
     }
-  }, [auth.state, loadServices, loadMyServices])
+  }, [auth.state, view, loadServices, loadMyServices])
 
 
 
@@ -155,7 +166,8 @@ function App() {
     try {
       const res = await apiFetch('/api/profile', { method: 'GET' })
       if (res.ok) {
-        const data = await res.json() as { user: User; profile: Profile | null }
+        const json = await res.json()
+        const data = json.data || json
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         saveAuth({ state: 'authenticated', token: token!, user: data.user })
       }
@@ -171,8 +183,9 @@ function App() {
     setView('home')
   }, [saveAuth])
 
-  const handleLoginSuccess = useCallback((data: { token: string; user: User }) => {
-    saveAuth({ state: 'authenticated', token: data.token, user: data.user })
+  const handleLoginSuccess = useCallback((data: { token: string; user: User } | { data: { token: string; user: User } }) => {
+    const actualData = 'data' in data ? data.data : data
+    saveAuth({ state: 'authenticated', token: actualData.token, user: actualData.user })
     setView('dashboard')
   }, [saveAuth])
 
@@ -205,7 +218,12 @@ function App() {
 
       <main className="main">
         {view === 'home' && auth.state === 'anonymous' && (
-          <LandingPage setView={setView} categories={categories} regions={regions} />
+          <LandingPage
+            setView={setView}
+            categories={categories}
+            regions={regions}
+            setSelectedCategoryId={setSelectedCategoryId}
+          />
         )}
 
         {view === 'dashboard' && auth.state === 'authenticated' && (
@@ -235,72 +253,21 @@ function App() {
           />
         )}
 
-        {view === 'service-detail' && selectedService && (
-          <div className="serviceDetailPage">
-            <button className="backBtn" onClick={() => setView(auth.state === 'authenticated' && auth.user.role === 'client' ? 'my-services' : 'services')}>
-              ← Voltar
-            </button>
-
-            <div className="serviceDetailLayout">
-              <div className="serviceDetailMain">
-                <div className="card">
-                  <div className="serviceDetailHeader">
-                    <div>
-                      <span className={`badge ${statusClass(selectedService.status)}`}>
-                        {statusLabel(selectedService.status)}
-                      </span>
-                      <h1>{selectedService.title}</h1>
-                      <div className="serviceDetailMeta">
-                        <span>📅 {formatDate(selectedService.created_at)}</span>
-                        <span>📍 {formatLocation(selectedService)}</span>
-                        <span>🏷️ {selectedService.category_name || 'Sem categoria'}</span>
-                      </div>
-                    </div>
-                    <div className="serviceDetailBudget">
-                      <div className="budgetLabel">Orcamento</div>
-                      <div className="budgetValue">
-                        {selectedService.budget_min && selectedService.budget_max
-                          ? `${formatCurrency(selectedService.budget_min)} - ${formatCurrency(selectedService.budget_max)}`
-                          : 'A combinar'}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="serviceDetailBody">
-                    <h2>Descricao</h2>
-                    <p>{selectedService.description || 'Sem descricao detalhada.'}</p>
-                  </div>
-
-                  <div className="serviceDetailInfo">
-                    <div className="infoItem">
-                      <span className="infoLabel">Urgencia</span>
-                      <span className={`badge ${urgencyClass(selectedService.urgency)}`}>
-                        {urgencyLabel(selectedService.urgency)}
-                      </span>
-                    </div>
-                    <div className="infoItem">
-                      <span className="infoLabel">Status</span>
-                      <span className={`badge ${statusClass(selectedService.status)}`}>
-                        {statusLabel(selectedService.status)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="serviceDetailSidebar">
-                {auth.state === 'authenticated' && auth.user.role === 'professional' && selectedService.status === 'open' && (
-                  <div className="card">
-                    <h3>Interessado?</h3>
-                    <p className="cardDesc">
-                      O sistema de propostas esta em desenvolvimento. Em breve voce podera enviar propostas diretamente por aqui.
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
+        {view === 'public-services' && (
+          <ServicesPage
+            services={services}
+            categories={categories}
+            regions={regions}
+            loading={loading}
+            onRefresh={loadServices}
+            openServiceDetail={openServiceDetail}
+            initialCategory={selectedCategoryId || undefined}
+            fixedCategory={true}
+            onBack={() => setView('home')}
+          />
         )}
+
+
 
         {view === 'my-services' && auth.state === 'authenticated' && (
           <MyServicesPage
@@ -321,12 +288,14 @@ function App() {
         )}
 
         {view === 'proposals' && auth.state === 'authenticated' && (
-          <ProposalsPage />
+          <ProposalsPage auth={auth} apiFetch={apiFetch} />
         )}
 
         {view === 'service-detail' && selectedService && (
           <ServiceDetailPage
             service={selectedService}
+            auth={auth}
+            apiFetch={apiFetch}
             setView={setView}
           />
         )}
@@ -360,6 +329,7 @@ function App() {
           <RegisterPage setView={setView} onRegisterSuccess={handleRegisterSuccess} apiBaseUrl={apiBaseUrl} />
         )}
       </main>
+      <Footer />
     </div>
   )
 }
