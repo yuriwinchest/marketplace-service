@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react'
+import { useMemo, useState } from 'react'
 import type { Category } from '../types'
 
 interface CategorySelectorProps {
@@ -9,32 +9,31 @@ interface CategorySelectorProps {
 }
 
 export function CategorySelector({ categories, value, onChange }: CategorySelectorProps) {
-    const [display, setDisplay] = useState('')
+    const selectedName = useMemo(() => {
+        return categories.find(c => c.id === value)?.name || ''
+    }, [categories, value])
+
+    const [query, setQuery] = useState('')
     const [isOpen, setIsOpen] = useState(false)
 
-    // Sync display with selected value
-    useEffect(() => {
-        if (value) {
-            const cat = categories.find(c => c.id === value)
-            if (cat) setDisplay(cat.name)
-        }
-    }, [value, categories])
-
     const filtered = categories.filter(c =>
-        c.name.toLowerCase().includes(display.toLowerCase())
+        c.name.toLowerCase().includes(query.toLowerCase())
     )
 
     return (
         <div className="searchableSelect">
             <input
                 type="text"
-                value={display}
+                value={isOpen ? query : selectedName}
                 onChange={e => {
-                    setDisplay(e.target.value)
+                    setQuery(e.target.value)
                     setIsOpen(true)
                     if (e.target.value === '') onChange('')
                 }}
-                onFocus={() => setIsOpen(true)}
+                onFocus={() => {
+                    setQuery(selectedName)
+                    setIsOpen(true)
+                }}
                 onBlur={() => setTimeout(() => setIsOpen(false), 200)}
                 placeholder="Busque uma categoria... (ex: Pedreiro, Design)"
                 className="categoryInput"
@@ -47,7 +46,7 @@ export function CategorySelector({ categories, value, onChange }: CategorySelect
                             className="dropdownOption"
                             onClick={() => {
                                 onChange(c.id)
-                                setDisplay(c.name)
+                                setQuery('')
                                 setIsOpen(false)
                             }}
                         >

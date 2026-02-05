@@ -1,16 +1,18 @@
 
 import type { Category } from '../types'
 
+interface Filters {
+    category: string
+    uf: string
+    city: string
+    budgetMin: string
+    budgetMax: string
+    urgency: string
+}
+
 interface FiltersPanelProps {
-    filters: {
-        category: string
-        uf: string
-        city: string
-        budgetMin: string
-        budgetMax: string
-        urgency: string
-    }
-    updateFilter: (key: any, value: string) => void
+    filters: Filters
+    updateFilter: (key: keyof Filters, value: string) => void
     clearFilters: () => void
     categories: Category[]
     states: { id: number; sigla: string; nome: string }[]

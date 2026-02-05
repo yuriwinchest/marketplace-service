@@ -2,7 +2,7 @@ import { ProposalsRepository } from './proposals.repository.js'
 import type { ProposalEntity, ProposalWithDetails } from './proposals.repository.js'
 import type { CreateProposalInput, UpdateProposalStatusInput } from './proposals.schema.js'
 import { SubscriptionsService } from '../subscriptions/subscriptions.service.js'
-
+import { supabase } from '../../shared/database/supabaseClient.js'
 import { NotificationsService } from '../notifications/notifications.service.js'
 
 export class ProposalsService {
@@ -36,12 +36,11 @@ export class ProposalsService {
     }
 
     // Obter o ID do cliente dono da demanda
-    const { pool } = await import('../../shared/database/connection.js')
-    const requestResult = await pool.query<{ client_id: string; title: string }>(
-      `SELECT client_id, title FROM public.service_requests WHERE id = $1`,
-      [input.serviceRequestId]
-    )
-    const request = requestResult.rows[0]
+    const { data: request } = await supabase
+      .from('service_requests')
+      .select('client_id, title')
+      .eq('id', input.serviceRequestId)
+      .single()
 
     const proposal = await this.repository.create(professionalId, input)
 
@@ -77,13 +76,12 @@ export class ProposalsService {
     }
 
     // Verificar se o cliente é dono da demanda
-    const { pool } = await import('../../shared/database/connection.js')
-    const requestResult = await pool.query<{ client_id: string; status: string; title: string }>(
-      `SELECT client_id, status, title FROM public.service_requests WHERE id = $1`,
-      [proposal.service_request_id],
-    )
+    const { data: serviceRequest } = await supabase
+      .from('service_requests')
+      .select('client_id, status, title')
+      .eq('id', proposal.service_request_id)
+      .single()
 
-    const serviceRequest = requestResult.rows[0]
     if (!serviceRequest) {
       throw new Error('Demanda não encontrada')
     }
@@ -96,34 +94,13 @@ export class ProposalsService {
       throw new Error('Apenas demandas abertas podem ter propostas aceitas')
     }
 
-    // Transação: atualizar proposta e demanda
-    const result = await this.repository.executeInTransaction(async (client) => {
-      // Atualizar status da proposta
-      const proposalResult = await client.query<ProposalEntity>(
-        `UPDATE public.proposals
-         SET status = $1, updated_at = now()
-         WHERE id = $2
-         RETURNING id, service_request_id, professional_id, value, description, estimated_days,
-                   status, created_at, updated_at`,
-        ['accepted', proposalId],
-      )
+    // Atualizar proposta para aceita
+    const result = await this.repository.updateStatus(proposalId, { status: 'accepted' })
 
-      if (!proposalResult.rows[0]) {
-        throw new Error('Proposta não encontrada')
-      }
+    // Atualizar status da demanda para 'matched'
+    await this.repository.updateServiceRequestStatus(proposal.service_request_id, 'matched')
 
-      // Atualizar status da demanda para 'matched' (equivalente a 'in_progress')
-      await client.query(
-        `UPDATE public.service_requests
-         SET status = $1, updated_at = now()
-         WHERE id = $2`,
-        ['matched', proposal.service_request_id],
-      )
-
-      return proposalResult.rows[0]
-    })
-
-    // Notificar o profissional (fora da transação para não bloquear)
+    // Notificar o profissional
     await this.notificationsService.notifyUser(
       result.professional_id,
       'Proposta Aceita! 🎉',
@@ -145,13 +122,13 @@ export class ProposalsService {
     }
 
     // Verificar se o cliente é dono da demanda
-    const { pool } = await import('../../shared/database/connection.js')
-    const requestResult = await pool.query<{ client_id: string }>(
-      `SELECT client_id FROM public.service_requests WHERE id = $1`,
-      [proposal.service_request_id],
-    )
+    const { data: serviceRequest } = await supabase
+      .from('service_requests')
+      .select('client_id')
+      .eq('id', proposal.service_request_id)
+      .single()
 
-    if (requestResult.rows[0]?.client_id !== clientId) {
+    if (serviceRequest?.client_id !== clientId) {
       throw new Error('Você não tem permissão para rejeitar esta proposta')
     }
 

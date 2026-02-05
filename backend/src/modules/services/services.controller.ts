@@ -58,7 +58,7 @@ export class ServicesController extends BaseController {
     const { id } = req.params
 
     try {
-      const stats = await this.servicesService.getProposalStats(id)
+      const stats = await this.servicesService.getProposalStats(id as string)
       return this.success(res, stats)
     } catch (error) {
       return this.serverError(res, 'Erro ao buscar estatísticas')

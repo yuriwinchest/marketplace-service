@@ -1,4 +1,4 @@
-import { pool } from '../../shared/database/connection.js'
+import { supabase } from '../../shared/database/supabaseClient.js'
 
 export interface UserProfileEntity {
   id: string
@@ -23,30 +23,47 @@ export interface ProfessionalProfileEntity {
 
 export class UsersRepository {
   async findById(userId: string): Promise<UserProfileEntity | null> {
-    const result = await pool.query<UserProfileEntity>(
-      `SELECT id, email, name, role, avatar_url, created_at 
-       FROM public.users 
-       WHERE id = $1`,
-      [userId],
-    )
-    return result.rows[0] || null
+    const { data, error } = await supabase
+      .from('users')
+      .select('id, email, name, role, avatar_url, created_at')
+      .eq('id', userId)
+      .single()
+
+    if (error && error.code !== 'PGRST116') {
+      console.warn('Erro ao buscar usuário:', error.message)
+    }
+    return data || null
   }
 
   async updateName(userId: string, name: string): Promise<void> {
-    await pool.query(`UPDATE public.users SET name = $1 WHERE id = $2`, [name, userId])
+    const { error } = await supabase
+      .from('users')
+      .update({ name })
+      .eq('id', userId)
+
+    if (error) {
+      console.warn('Erro ao atualizar nome:', error.message)
+    }
   }
 
   async updateAvatar(userId: string, avatarUrl: string): Promise<string | null> {
-    const oldResult = await pool.query<{ avatar_url: string | null }>(
-      `SELECT avatar_url FROM public.users WHERE id = $1`,
-      [userId],
-    )
-    const oldAvatar = oldResult.rows[0]?.avatar_url || null
+    // Get old avatar first
+    const { data: oldData } = await supabase
+      .from('users')
+      .select('avatar_url')
+      .eq('id', userId)
+      .single()
 
-    await pool.query(`UPDATE public.users SET avatar_url = $1 WHERE id = $2`, [
-      avatarUrl,
-      userId,
-    ])
+    const oldAvatar = oldData?.avatar_url || null
+
+    const { error } = await supabase
+      .from('users')
+      .update({ avatar_url: avatarUrl })
+      .eq('id', userId)
+
+    if (error) {
+      console.warn('Erro ao atualizar avatar:', error.message)
+    }
 
     return oldAvatar
   }
@@ -54,13 +71,16 @@ export class UsersRepository {
   async getProfessionalProfile(
     userId: string,
   ): Promise<ProfessionalProfileEntity | null> {
-    const result = await pool.query<ProfessionalProfileEntity>(
-      `SELECT bio, phone, skills, location_scope, uf, city, is_remote, email, whatsapp 
-       FROM public.professional_profiles 
-       WHERE user_id = $1`,
-      [userId],
-    )
-    return result.rows[0] || null
+    const { data, error } = await supabase
+      .from('professional_profiles')
+      .select('bio, phone, skills, location_scope, uf, city, is_remote, email, whatsapp')
+      .eq('user_id', userId)
+      .single()
+
+    if (error && error.code !== 'PGRST116') {
+      console.warn('Erro ao buscar perfil profissional:', error.message)
+    }
+    return data || null
   }
 
   async upsertProfessionalProfile(
@@ -77,32 +97,25 @@ export class UsersRepository {
       whatsapp?: string | null | undefined
     },
   ): Promise<void> {
-    await pool.query(
-      `INSERT INTO public.professional_profiles (user_id, bio, phone, skills, location_scope, uf, city, is_remote, email, whatsapp)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-       ON CONFLICT (user_id) DO UPDATE SET
-         bio = COALESCE($2, professional_profiles.bio),
-         phone = COALESCE($3, professional_profiles.phone),
-         skills = COALESCE($4, professional_profiles.skills),
-         location_scope = COALESCE($5, professional_profiles.location_scope),
-         uf = COALESCE($6, professional_profiles.uf),
-         city = COALESCE($7, professional_profiles.city),
-         is_remote = COALESCE($8, professional_profiles.is_remote),
-         email = COALESCE($9, professional_profiles.email),
-         whatsapp = COALESCE($10, professional_profiles.whatsapp)`,
-      [
-        userId,
-        data.bio ?? null,
-        data.phone ?? null,
-        data.skills ?? null,
-        data.locationScope ?? 'national',
-        data.uf ?? null,
-        data.city ?? null,
-        data.isRemote ?? false,
-        data.email ?? null,
-        data.whatsapp ?? null,
-      ],
-    )
+    const { error } = await supabase
+      .from('professional_profiles')
+      .upsert({
+        user_id: userId,
+        bio: data.bio ?? null,
+        phone: data.phone ?? null,
+        skills: data.skills ?? null,
+        location_scope: data.locationScope ?? 'national',
+        uf: data.uf ?? null,
+        city: data.city ?? null,
+        is_remote: data.isRemote ?? false,
+        email: data.email ?? null,
+        whatsapp: data.whatsapp ?? null,
+      }, { onConflict: 'user_id' })
+
+    if (error) {
+      console.warn('Erro ao salvar perfil profissional:', error.message)
+      throw new Error(error.message)
+    }
   }
 
   async findProfessionals(
@@ -113,54 +126,55 @@ export class UsersRepository {
     },
     pagination: { page: number; limit: number } = { page: 1, limit: 20 },
   ): Promise<(UserProfileEntity & ProfessionalProfileEntity)[]> {
-    let query = `
-      SELECT u.id, u.email, u.name, u.role, u.avatar_url, u.created_at,
-             pp.bio, pp.phone, pp.skills, pp.location_scope, pp.uf, pp.city, pp.is_remote, pp.email as prof_email, pp.whatsapp
-      FROM public.users u
-      JOIN public.professional_profiles pp ON u.id = pp.user_id
-    `
-    const conditions: string[] = ["u.role = 'professional'"]
-    const params: any[] = []
+    // Build query for users with professional profiles
+    let query = supabase
+      .from('users')
+      .select(`
+        id, email, name, role, avatar_url, created_at,
+        professional_profiles!inner (
+          bio, phone, skills, location_scope, uf, city, is_remote, email, whatsapp
+        )
+      `)
+      .eq('role', 'professional')
 
-    if (filters.categoryId) {
-      query += ` JOIN public.professional_categories pc ON pp.id = pc.professional_id`
-      params.push(filters.categoryId)
-      conditions.push(`pc.category_id = $${params.length}`)
+    // Apply location filters
+    if (filters.city) {
+      query = query.or(`professional_profiles.city.eq.${filters.city},professional_profiles.is_remote.eq.true`)
+    }
+    if (filters.uf) {
+      query = query.or(`professional_profiles.uf.eq.${filters.uf},professional_profiles.is_remote.eq.true`)
     }
 
-    if (filters.city || filters.uf) {
-      // Regra de Negócio: Se for remoto, ele aparece independente da cidade
-      const subConditions: string[] = ['pp.is_remote = true']
+    // Apply pagination
+    const offset = (pagination.page - 1) * pagination.limit
+    query = query
+      .order('created_at', { ascending: false })
+      .range(offset, offset + pagination.limit - 1)
 
-      if (filters.city) {
-        params.push(filters.city)
-        subConditions.push(`pp.city = $${params.length}`)
-      }
-      if (filters.uf) {
-        params.push(filters.uf)
-        subConditions.push(`pp.uf = $${params.length}`)
-      }
+    const { data, error } = await query
 
-      conditions.push(`(${subConditions.join(' OR ')})`)
+    if (error) {
+      console.warn('Erro ao buscar profissionais:', error.message)
+      return []
     }
 
-    if (conditions.length > 0) {
-      query += ` WHERE ` + conditions.join(' AND ')
-    }
-
-    query += ` ORDER BY u.created_at DESC`
-
-    // Pagination
-    const limit = pagination.limit
-    const offset = (pagination.page - 1) * limit
-
-    params.push(limit)
-    query += ` LIMIT $${params.length}`
-
-    params.push(offset)
-    query += ` OFFSET $${params.length}`
-
-    const result = await pool.query<UserProfileEntity & ProfessionalProfileEntity>(query, params)
-    return result.rows
+    // Flatten the nested structure
+    return (data || []).map((user: any) => ({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      avatar_url: user.avatar_url,
+      created_at: user.created_at,
+      bio: user.professional_profiles?.bio || null,
+      phone: user.professional_profiles?.phone || null,
+      skills: user.professional_profiles?.skills || null,
+      location_scope: user.professional_profiles?.location_scope || 'national',
+      uf: user.professional_profiles?.uf || null,
+      city: user.professional_profiles?.city || null,
+      is_remote: user.professional_profiles?.is_remote || false,
+      prof_email: user.professional_profiles?.email || null,
+      whatsapp: user.professional_profiles?.whatsapp || null,
+    }))
   }
 }

@@ -1,4 +1,4 @@
-import { pool } from '../../shared/database/connection.js'
+import { supabase } from '../../shared/database/supabaseClient.js'
 
 export interface RegionEntity {
   id: string
@@ -7,9 +7,15 @@ export interface RegionEntity {
 
 export class RegionsRepository {
   async findAll(): Promise<RegionEntity[]> {
-    const result = await pool.query<RegionEntity>(
-      `SELECT id, name FROM public.regions ORDER BY name ASC`,
-    )
-    return result.rows
+    const { data, error } = await supabase
+      .from('regions')
+      .select('id, name')
+      .order('name', { ascending: true })
+
+    if (error) {
+      console.warn('Erro ao buscar regiões:', error.message)
+      return []
+    }
+    return data || []
   }
 }

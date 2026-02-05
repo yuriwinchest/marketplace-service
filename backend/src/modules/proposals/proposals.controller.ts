@@ -16,7 +16,7 @@ export class ProposalsController extends BaseController {
 
     const parsed = createProposalSchema.safeParse(req.body)
     if (!parsed.success) {
-      const errorMessage = parsed.error.errors.map(e => e.message).join(', ')
+      const errorMessage = parsed.error.issues.map(e => e.message).join(', ')
       return this.error(res, `Dados inválidos: ${errorMessage}`)
     }
 

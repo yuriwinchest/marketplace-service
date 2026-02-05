@@ -14,8 +14,7 @@ export function Header({ view, setView, auth, onLogout }: HeaderProps) {
         <header className="header">
             <div className="headerInner">
                 <div className="logo" onClick={() => setView(auth.state === 'authenticated' ? 'dashboard' : 'home')}>
-                    <img className="logoIcon" src="/favicon.png" alt="Logo ServicoJa" />
-                    <span className="logoText">ServicoJa</span>
+                    <img className="logoImg" src="/logo.png" alt="FazServiço" />
                 </div>
 
                 {auth.state === 'authenticated' && (

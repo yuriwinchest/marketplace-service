@@ -2,7 +2,7 @@ import * as jwt from 'jsonwebtoken'
 import * as bcrypt from 'bcrypt'
 import { randomUUID } from 'crypto'
 import { config } from '../../config/unifiedConfig.js'
-import { pool } from '../../shared/database/connection.js'
+import { supabase } from '../../shared/database/supabaseClient.js'
 
 const jwtLib =
   ((jwt as unknown as { default?: typeof jwt }).default as typeof jwt | undefined) ?? jwt
@@ -19,31 +19,37 @@ export class AuthRefreshService {
     const expiresAt = new Date()
     expiresAt.setDate(expiresAt.getDate() + 7) // 7 dias
 
-    await pool.query(
-      `INSERT INTO public.refresh_tokens (user_id, token_hash, expires_at)
-       VALUES ($1, $2, $3)`,
-      [userId, tokenHash, expiresAt.toISOString()],
-    )
+    const { error } = await supabase
+      .from('refresh_tokens')
+      .insert({
+        user_id: userId,
+        token_hash: tokenHash,
+        expires_at: expiresAt.toISOString(),
+      })
+
+    if (error) {
+      console.warn('Erro ao criar refresh token:', error.message)
+      throw new Error('Erro ao criar refresh token')
+    }
 
     return token
   }
 
   async verifyRefreshToken(token: string): Promise<{ userId: string } | null> {
-    const result = await pool.query<{
-      id: string
-      user_id: string
-      token_hash: string
-      expires_at: string
-      revoked_at: string | null
-    }>(
-      `SELECT id, user_id, token_hash, expires_at, revoked_at
-       FROM public.refresh_tokens
-       WHERE expires_at > now() AND revoked_at IS NULL
-       ORDER BY created_at DESC
-       LIMIT 10`,
-    )
+    const { data, error } = await supabase
+      .from('refresh_tokens')
+      .select('id, user_id, token_hash, expires_at, revoked_at')
+      .gt('expires_at', new Date().toISOString())
+      .is('revoked_at', null)
+      .order('created_at', { ascending: false })
+      .limit(10)
 
-    for (const row of result.rows) {
+    if (error) {
+      console.warn('Erro ao buscar refresh tokens:', error.message)
+      return null
+    }
+
+    for (const row of data || []) {
       const isValid = await bcrypt.compare(token, row.token_hash)
       if (isValid) {
         return { userId: row.user_id }
@@ -54,26 +60,25 @@ export class AuthRefreshService {
   }
 
   async revokeRefreshToken(token: string): Promise<void> {
-    const result = await pool.query<{
-      id: string
-      token_hash: string
-    }>(
-      `SELECT id, token_hash
-       FROM public.refresh_tokens
-       WHERE revoked_at IS NULL
-       ORDER BY created_at DESC
-       LIMIT 10`,
-    )
+    const { data, error } = await supabase
+      .from('refresh_tokens')
+      .select('id, token_hash')
+      .is('revoked_at', null)
+      .order('created_at', { ascending: false })
+      .limit(10)
 
-    for (const row of result.rows) {
+    if (error) {
+      console.warn('Erro ao buscar refresh tokens:', error.message)
+      return
+    }
+
+    for (const row of data || []) {
       const isValid = await bcrypt.compare(token, row.token_hash)
       if (isValid) {
-        await pool.query(
-          `UPDATE public.refresh_tokens
-           SET revoked_at = now()
-           WHERE id = $1`,
-          [row.id],
-        )
+        await supabase
+          .from('refresh_tokens')
+          .update({ revoked_at: new Date().toISOString() })
+          .eq('id', row.id)
         return
       }
     }
@@ -86,16 +91,13 @@ export class AuthRefreshService {
     }
 
     // Buscar dados do usuário
-    const userResult = await pool.query<{
-      id: string
-      role: string
-    }>(
-      `SELECT id, role FROM public.users WHERE id = $1`,
-      [tokenData.userId],
-    )
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('id, role')
+      .eq('id', tokenData.userId)
+      .single()
 
-    const user = userResult.rows[0]
-    if (!user) {
+    if (error || !user) {
       throw new Error('Usuário não encontrado')
     }
 

@@ -1,4 +1,4 @@
-import { pool } from '../../shared/database/connection.js'
+import { supabase } from '../../shared/database/supabaseClient.js'
 import * as bcrypt from 'bcrypt'
 
 export interface UserEntity {
@@ -13,13 +13,16 @@ export interface UserEntity {
 
 export class AuthRepository {
   async findByEmail(email: string): Promise<UserEntity | null> {
-    const result = await pool.query<UserEntity>(
-      `SELECT id, email, password_hash, name, role, avatar_url, created_at 
-       FROM public.users 
-       WHERE email = $1`,
-      [email.toLowerCase()],
-    )
-    return result.rows[0] || null
+    const { data, error } = await supabase
+      .from('users')
+      .select('id, email, password_hash, name, role, avatar_url, created_at')
+      .eq('email', email.toLowerCase())
+      .single()
+
+    if (error && error.code !== 'PGRST116') {
+      console.warn('Erro ao buscar usuário:', error.message)
+    }
+    return data || null
   }
 
   async createUser(
@@ -28,28 +31,32 @@ export class AuthRepository {
     name: string | null,
     role: string,
   ): Promise<Omit<UserEntity, 'password_hash'>> {
-    const result = await pool.query<Omit<UserEntity, 'password_hash'>>(
-      `INSERT INTO public.users (email, password_hash, name, role)
-       VALUES ($1, $2, $3, $4)
-       RETURNING id, email, name, role, avatar_url, created_at`,
-      [email.toLowerCase(), passwordHash, name ?? null, role],
-    )
+    const { data, error } = await supabase
+      .from('users')
+      .insert({
+        email: email.toLowerCase(),
+        password_hash: passwordHash,
+        name: name ?? null,
+        role,
+      })
+      .select('id, email, name, role, avatar_url, created_at')
+      .single()
 
-    const created = result.rows[0]
-    if (!created) {
-      throw new Error('Erro ao criar usuário')
+    if (error || !data) {
+      throw new Error(error?.message || 'Erro ao criar usuário')
     }
 
-    return created
+    return data
   }
 
   async createProfessionalProfile(userId: string): Promise<void> {
-    await pool.query(
-      `INSERT INTO public.professional_profiles (user_id)
-       VALUES ($1)
-       ON CONFLICT (user_id) DO NOTHING`,
-      [userId],
-    )
+    const { error } = await supabase
+      .from('professional_profiles')
+      .upsert({ user_id: userId }, { onConflict: 'user_id' })
+
+    if (error) {
+      console.warn('Erro ao criar perfil profissional:', error.message)
+    }
   }
 
   async verifyPassword(password: string, hash: string): Promise<boolean> {

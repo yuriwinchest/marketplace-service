@@ -28,6 +28,8 @@ function App() {
 
   const [categories, setCategories] = useState<Category[]>([])
   const [regions, setRegions] = useState<Region[]>([])
+  const [publicDataLoading, setPublicDataLoading] = useState(false)
+  const [publicDataError, setPublicDataError] = useState('')
   const [services, setServices] = useState<Service[]>([])
   const [myServices, setMyServices] = useState<Service[]>([])
   const [loading, setLoading] = useState(false)
@@ -51,8 +53,9 @@ function App() {
   )
 
   const loadPublicData = useCallback(async () => {
+    setPublicDataLoading(true)
+    setPublicDataError('')
     try {
-      console.log('Carregando dados públicos...')
       const [catRes, regRes] = await Promise.all([
         apiFetch('/api/categories', { method: 'GET' }),
         apiFetch('/api/regions', { method: 'GET' }),
@@ -61,20 +64,22 @@ function App() {
       if (catRes.ok) {
         const json = await catRes.json()
         const items = json.data?.items || json.items || []
-        console.log('Categorias carregadas:', items.length)
         setCategories(items)
       } else {
-        console.error('Erro ao carregar categorias:', catRes.status)
+        setPublicDataError(`Erro ao carregar categorias (HTTP ${catRes.status})`)
       }
 
       if (regRes.ok) {
         const json = await regRes.json()
         const items = json.data?.items || json.items || []
-        console.log('Regiões carregadas:', items.length)
         setRegions(items)
+      } else {
+        setPublicDataError((prev) => prev || `Erro ao carregar regiões (HTTP ${regRes.status})`)
       }
-    } catch (error) {
-      console.error('Erro na carga de dados públicos:', error)
+    } catch {
+      setPublicDataError('Erro de conexão ao carregar dados públicos')
+    } finally {
+      setPublicDataLoading(false)
     }
   }, [apiFetch])
 
@@ -125,11 +130,10 @@ function App() {
   const loadProfile = useCallback(async () => {
     if (auth.state !== 'authenticated') return
     try {
-      const res = await apiFetch('/api/profile', { method: 'GET' })
+      const res = await apiFetch('/api/users/profile', { method: 'GET' })
       if (res.ok) {
-        const json = await res.json()
-        const data = json.data || json
-        updateUser(data.user)
+        const json = await res.json() as { success: true; data: { user: User } }
+        updateUser(json.data.user)
       }
     } catch {
       // silent
@@ -177,6 +181,8 @@ function App() {
             categories={categories}
             regions={regions}
             setSelectedCategoryId={setSelectedCategoryId}
+            publicDataLoading={publicDataLoading}
+            publicDataError={publicDataError}
           />
         )}
 
@@ -200,7 +206,6 @@ function App() {
           <ServicesPage
             services={services}
             categories={categories}
-            regions={regions}
             loading={loading}
             onRefresh={loadServices}
             openServiceDetail={openServiceDetail}
@@ -211,7 +216,6 @@ function App() {
           <ServicesPage
             services={services}
             categories={categories}
-            regions={regions}
             loading={loading}
             onRefresh={loadServices}
             openServiceDetail={openServiceDetail}

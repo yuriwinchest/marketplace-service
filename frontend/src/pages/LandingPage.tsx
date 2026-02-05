@@ -7,9 +7,11 @@ interface LandingPageProps {
     categories: Category[]
     regions: Region[]
     setSelectedCategoryId: (id: string | null) => void
+    publicDataLoading: boolean
+    publicDataError: string
 }
 
-export function LandingPage({ setView, categories, regions, setSelectedCategoryId }: LandingPageProps) {
+export function LandingPage({ setView, categories, regions, setSelectedCategoryId, publicDataLoading, publicDataError }: LandingPageProps) {
     const [searchTerm, setSearchTerm] = useState('')
 
     const filteredCategories = categories.filter(cat =>
@@ -53,8 +55,8 @@ export function LandingPage({ setView, categories, regions, setSelectedCategoryI
                 </div>
             </section>
 
-            {categories.length > 0 && (
-                <section className="categoriesSection">
+            <section className="categoriesSection">
+                {categories.length > 0 && (
                     <div style={{ maxWidth: '600px', margin: '0 auto 3rem' }}>
                         <div style={{ position: 'relative' }}>
                             <input
@@ -76,8 +78,25 @@ export function LandingPage({ setView, categories, regions, setSelectedCategoryI
                             />
                         </div>
                     </div>
+                )}
 
-                    <h2 className="sectionTitle">Categorias disponiveis</h2>
+                <h2 className="sectionTitle">Categorias disponiveis</h2>
+
+                {publicDataLoading ? (
+                    <div className="loading">Carregando categorias...</div>
+                ) : publicDataError ? (
+                    <div className="emptyState">
+                        <div className="emptyIcon">⚠️</div>
+                        <h3>Não foi possível carregar as categorias</h3>
+                        <p>{publicDataError}</p>
+                    </div>
+                ) : categories.length === 0 ? (
+                    <div className="emptyState">
+                        <div className="emptyIcon">📭</div>
+                        <h3>Nenhuma categoria encontrada</h3>
+                        <p>Verifique se o backend está rodando e se o banco foi populado.</p>
+                    </div>
+                ) : (
                     <div className="categoriesGrid">
                         {filteredCategories.map(cat => (
                             <div key={cat.id} className="categoryCard" onClick={() => {
@@ -89,8 +108,8 @@ export function LandingPage({ setView, categories, regions, setSelectedCategoryI
                             </div>
                         ))}
                     </div>
-                </section>
-            )}
+                )}
+            </section>
 
             <section className="howSection">
                 <h2 className="sectionTitle">Como funciona</h2>

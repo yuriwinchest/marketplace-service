@@ -12,18 +12,17 @@ interface ProfilePageProps {
 }
 
 export function ProfilePage({ auth, setView, apiFetch, apiBaseUrl, myServicesCount, servicesCount }: ProfilePageProps) {
-    if (auth.state !== 'authenticated') return null
-
     const [profileData, setProfileData] = useState<Profile | null>(null)
 
     useEffect(() => {
+        if (auth.state !== 'authenticated') return
         let mounted = true
         const load = async () => {
             try {
-                const res = await apiFetch('/api/profile', { method: 'GET' })
+                const res = await apiFetch('/api/users/profile', { method: 'GET' })
                 if (res.ok && mounted) {
-                    const data = await res.json() as { user: User; profile: Profile | null }
-                    setProfileData(data.profile)
+                    const json = await res.json() as { success: true; data: { user: User; profile: Profile | null } }
+                    setProfileData(json.data.profile)
                 }
             } catch {
                 // silent
@@ -31,7 +30,9 @@ export function ProfilePage({ auth, setView, apiFetch, apiBaseUrl, myServicesCou
         }
         load()
         return () => { mounted = false }
-    }, [apiFetch])
+    }, [apiFetch, auth.state])
+
+    if (auth.state !== 'authenticated') return null
 
     const getUserName = () => auth.user.name || auth.user.email.split('@')[0]
 

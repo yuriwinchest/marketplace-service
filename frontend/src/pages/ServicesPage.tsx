@@ -1,5 +1,5 @@
 
-import type { Service, Category, Region } from '../types'
+import type { Service, Category } from '../types'
 import { useServiceFilters } from '../hooks/useServiceFilters'
 import { FiltersPanel } from '../components/FiltersPanel'
 import { ServiceCard } from '../components/ServiceCard'
@@ -7,7 +7,6 @@ import { ServiceCard } from '../components/ServiceCard'
 interface ServicesPageProps {
     services: Service[]
     categories: Category[]
-    regions: Region[]
     loading: boolean
     onRefresh: () => void
     openServiceDetail: (id: string) => void
@@ -19,9 +18,7 @@ interface ServicesPageProps {
 export function ServicesPage({
     services,
     categories,
-    regions,
-    loading,
-    onRefresh,
+    loading, onRefresh,
     openServiceDetail,
     initialCategory,
     fixedCategory,

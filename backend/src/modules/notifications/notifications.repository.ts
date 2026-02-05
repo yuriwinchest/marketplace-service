@@ -1,5 +1,4 @@
-
-import { pool } from '../../shared/database/connection.js'
+import { supabase } from '../../shared/database/supabaseClient.js'
 
 export type NotificationType =
     | 'PROPOSAL_RECEIVED'
@@ -27,50 +26,75 @@ export class NotificationsRepository {
         type: NotificationType,
         metadata: Record<string, any> = {}
     ): Promise<NotificationEntity> {
-        const result = await pool.query<NotificationEntity>(
-            `INSERT INTO public.notifications (user_id, title, message, type, metadata)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING *`,
-            [userId, title, message, type, metadata]
-        )
-        return result.rows[0]!
+        const { data, error } = await supabase
+            .from('notifications')
+            .insert({
+                user_id: userId,
+                title,
+                message,
+                type,
+                metadata,
+            })
+            .select('*')
+            .single()
+
+        if (error || !data) {
+            throw new Error(error?.message || 'Erro ao criar notificação')
+        }
+
+        return data as NotificationEntity
     }
 
     async findByUser(userId: string, limit = 20, offset = 0): Promise<NotificationEntity[]> {
-        const result = await pool.query<NotificationEntity>(
-            `SELECT * FROM public.notifications
-       WHERE user_id = $1
-       ORDER BY created_at DESC
-       LIMIT $2 OFFSET $3`,
-            [userId, limit, offset]
-        )
-        return result.rows
+        const { data, error } = await supabase
+            .from('notifications')
+            .select('*')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false })
+            .range(offset, offset + limit - 1)
+
+        if (error) {
+            console.warn('Erro ao buscar notificações:', error.message)
+            return []
+        }
+        return (data || []) as NotificationEntity[]
     }
 
     async countUnread(userId: string): Promise<number> {
-        const result = await pool.query<{ count: string }>(
-            `SELECT COUNT(*) as count FROM public.notifications
-       WHERE user_id = $1 AND read_at IS NULL`,
-            [userId]
-        )
-        return parseInt(result.rows[0]!.count, 10)
+        const { count, error } = await supabase
+            .from('notifications')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', userId)
+            .is('read_at', null)
+
+        if (error) {
+            console.warn('Erro ao contar notificações não lidas:', error.message)
+            return 0
+        }
+        return count || 0
     }
 
     async markAsRead(notificationId: string, userId: string): Promise<void> {
-        await pool.query(
-            `UPDATE public.notifications
-       SET read_at = now()
-       WHERE id = $1 AND user_id = $2`,
-            [notificationId, userId]
-        )
+        const { error } = await supabase
+            .from('notifications')
+            .update({ read_at: new Date().toISOString() })
+            .eq('id', notificationId)
+            .eq('user_id', userId)
+
+        if (error) {
+            console.warn('Erro ao marcar notificação como lida:', error.message)
+        }
     }
 
     async markAllAsRead(userId: string): Promise<void> {
-        await pool.query(
-            `UPDATE public.notifications
-       SET read_at = now()
-       WHERE user_id = $1 AND read_at IS NULL`,
-            [userId]
-        )
+        const { error } = await supabase
+            .from('notifications')
+            .update({ read_at: new Date().toISOString() })
+            .eq('user_id', userId)
+            .is('read_at', null)
+
+        if (error) {
+            console.warn('Erro ao marcar todas notificações como lidas:', error.message)
+        }
     }
 }

@@ -1,5 +1,4 @@
-import { pool } from '../../shared/database/connection.js'
-import type { PoolClient } from 'pg'
+import { supabase } from '../../shared/database/supabaseClient.js'
 import type { CreateProposalInput, UpdateProposalStatusInput } from './proposals.schema.js'
 
 export interface ProposalEntity {
@@ -22,140 +21,173 @@ export interface ProposalWithDetails extends ProposalEntity {
 
 export class ProposalsRepository {
   async create(professionalId: string, input: CreateProposalInput): Promise<ProposalEntity> {
-    const result = await pool.query<ProposalEntity>(
-      `INSERT INTO public.proposals (service_request_id, professional_id, value, description, estimated_days)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING id, service_request_id, professional_id, value, description, estimated_days,
-                 status, created_at, updated_at`,
-      [
-        input.serviceRequestId,
-        professionalId,
-        input.value,
-        input.description,
-        input.estimatedDays ?? null,
-      ],
-    )
+    const { data, error } = await supabase
+      .from('proposals')
+      .insert({
+        service_request_id: input.serviceRequestId,
+        professional_id: professionalId,
+        value: input.value,
+        description: input.description,
+        estimated_days: input.estimatedDays ?? null,
+      })
+      .select('id, service_request_id, professional_id, value, description, estimated_days, status, created_at, updated_at')
+      .single()
 
-    if (!result.rows[0]) {
-      throw new Error('Erro ao criar proposta')
+    if (error || !data) {
+      throw new Error(error?.message || 'Erro ao criar proposta')
     }
 
-    return result.rows[0]
+    return data as ProposalEntity
   }
 
   async findByServiceRequest(serviceRequestId: string): Promise<ProposalWithDetails[]> {
-    const result = await pool.query<ProposalWithDetails>(
-      `SELECT 
-        p.id, p.service_request_id, p.professional_id, p.value, p.description,
-        p.estimated_days, p.status, p.created_at, p.updated_at,
-        u.name as professional_name,
-        sr.title as service_request_title,
-        sr.status as service_request_status
-       FROM public.proposals p
-       JOIN public.professional_profiles pp ON pp.id = p.professional_id
-       JOIN public.users u ON u.id = pp.user_id
-       JOIN public.service_requests sr ON sr.id = p.service_request_id
-       WHERE p.service_request_id = $1
-       ORDER BY p.created_at DESC`,
-      [serviceRequestId],
-    )
-    return result.rows
+    const { data, error } = await supabase
+      .from('proposals')
+      .select(`
+        id, service_request_id, professional_id, value, description,
+        estimated_days, status, created_at, updated_at,
+        professional_profiles!inner (
+          users!inner (name)
+        ),
+        service_requests!inner (title, status)
+      `)
+      .eq('service_request_id', serviceRequestId)
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      console.warn('Erro ao buscar propostas:', error.message)
+      return []
+    }
+
+    return (data || []).map((p: any) => ({
+      id: p.id,
+      service_request_id: p.service_request_id,
+      professional_id: p.professional_id,
+      value: p.value,
+      description: p.description,
+      estimated_days: p.estimated_days,
+      status: p.status,
+      created_at: p.created_at,
+      updated_at: p.updated_at,
+      professional_name: p.professional_profiles?.users?.name || null,
+      service_request_title: p.service_requests?.title || '',
+      service_request_status: p.service_requests?.status || '',
+    }))
   }
 
   async findByProfessional(professionalId: string): Promise<ProposalWithDetails[]> {
-    const result = await pool.query<ProposalWithDetails>(
-      `SELECT 
-        p.id, p.service_request_id, p.professional_id, p.value, p.description,
-        p.estimated_days, p.status, p.created_at, p.updated_at,
-        u.name as professional_name,
-        sr.title as service_request_title,
-        sr.status as service_request_status
-       FROM public.proposals p
-       JOIN public.professional_profiles pp ON pp.id = p.professional_id
-       JOIN public.users u ON u.id = pp.user_id
-       JOIN public.service_requests sr ON sr.id = p.service_request_id
-       WHERE p.professional_id = $1
-       ORDER BY p.created_at DESC`,
-      [professionalId],
-    )
-    return result.rows
+    const { data, error } = await supabase
+      .from('proposals')
+      .select(`
+        id, service_request_id, professional_id, value, description,
+        estimated_days, status, created_at, updated_at,
+        professional_profiles!inner (
+          users!inner (name)
+        ),
+        service_requests!inner (title, status)
+      `)
+      .eq('professional_id', professionalId)
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      console.warn('Erro ao buscar propostas do profissional:', error.message)
+      return []
+    }
+
+    return (data || []).map((p: any) => ({
+      id: p.id,
+      service_request_id: p.service_request_id,
+      professional_id: p.professional_id,
+      value: p.value,
+      description: p.description,
+      estimated_days: p.estimated_days,
+      status: p.status,
+      created_at: p.created_at,
+      updated_at: p.updated_at,
+      professional_name: p.professional_profiles?.users?.name || null,
+      service_request_title: p.service_requests?.title || '',
+      service_request_status: p.service_requests?.status || '',
+    }))
   }
 
   async findById(proposalId: string): Promise<ProposalEntity | null> {
-    const result = await pool.query<ProposalEntity>(
-      `SELECT id, service_request_id, professional_id, value, description, estimated_days,
-              status, created_at, updated_at
-       FROM public.proposals
-       WHERE id = $1`,
-      [proposalId],
-    )
-    return result.rows[0] || null
+    const { data, error } = await supabase
+      .from('proposals')
+      .select('id, service_request_id, professional_id, value, description, estimated_days, status, created_at, updated_at')
+      .eq('id', proposalId)
+      .single()
+
+    if (error && error.code !== 'PGRST116') {
+      console.warn('Erro ao buscar proposta:', error.message)
+    }
+    return (data as ProposalEntity) || null
   }
 
   async exists(serviceRequestId: string, professionalId: string): Promise<boolean> {
-    const result = await pool.query<{ count: string }>(
-      `SELECT COUNT(*) as count
-       FROM public.proposals
-       WHERE service_request_id = $1 AND professional_id = $2`,
-      [serviceRequestId, professionalId],
-    )
-    return parseInt(result.rows[0]?.count || '0') > 0
+    const { count, error } = await supabase
+      .from('proposals')
+      .select('*', { count: 'exact', head: true })
+      .eq('service_request_id', serviceRequestId)
+      .eq('professional_id', professionalId)
+
+    if (error) {
+      console.warn('Erro ao verificar existência de proposta:', error.message)
+      return false
+    }
+    return (count || 0) > 0
   }
 
   async updateStatus(
     proposalId: string,
     input: UpdateProposalStatusInput,
   ): Promise<ProposalEntity> {
-    const result = await pool.query<ProposalEntity>(
-      `UPDATE public.proposals
-       SET status = $1, updated_at = now()
-       WHERE id = $2
-       RETURNING id, service_request_id, professional_id, value, description, estimated_days,
-                 status, created_at, updated_at`,
-      [input.status, proposalId],
-    )
+    const { data, error } = await supabase
+      .from('proposals')
+      .update({ status: input.status, updated_at: new Date().toISOString() })
+      .eq('id', proposalId)
+      .select('id, service_request_id, professional_id, value, description, estimated_days, status, created_at, updated_at')
+      .single()
 
-    if (!result.rows[0]) {
-      throw new Error('Proposta não encontrada')
+    if (error || !data) {
+      throw new Error(error?.message || 'Proposta não encontrada')
     }
 
-    return result.rows[0]
+    return data as ProposalEntity
   }
 
   async getServiceRequestStatus(serviceRequestId: string): Promise<string | null> {
-    const result = await pool.query<{ status: string }>(
-      `SELECT status FROM public.service_requests WHERE id = $1`,
-      [serviceRequestId],
-    )
-    return result.rows[0]?.status || null
+    const { data, error } = await supabase
+      .from('service_requests')
+      .select('status')
+      .eq('id', serviceRequestId)
+      .single()
+
+    if (error && error.code !== 'PGRST116') {
+      console.warn('Erro ao buscar status da solicitação:', error.message)
+    }
+    return data?.status || null
   }
 
   async updateServiceRequestStatus(
     serviceRequestId: string,
     status: string,
   ): Promise<void> {
-    await pool.query(
-      `UPDATE public.service_requests
-       SET status = $1, updated_at = now()
-       WHERE id = $2`,
-      [status, serviceRequestId],
-    )
+    const { error } = await supabase
+      .from('service_requests')
+      .update({ status, updated_at: new Date().toISOString() })
+      .eq('id', serviceRequestId)
+
+    if (error) {
+      console.warn('Erro ao atualizar status da solicitação:', error.message)
+    }
   }
 
   async executeInTransaction<T>(
-    callback: (client: PoolClient) => Promise<T>,
+    callback: () => Promise<T>,
   ): Promise<T> {
-    const client = await pool.connect()
-    try {
-      await client.query('BEGIN')
-      const result = await callback(client)
-      await client.query('COMMIT')
-      return result
-    } catch (error) {
-      await client.query('ROLLBACK')
-      throw error
-    } finally {
-      client.release()
-    }
+    // Supabase REST API doesn't support transactions directly
+    // For now, we execute the callback directly
+    // For true transactions, you would need to use Supabase Edge Functions with pg
+    return await callback()
   }
 }

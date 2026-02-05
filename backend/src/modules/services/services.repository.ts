@@ -1,4 +1,4 @@
-import { pool } from '../../shared/database/connection.js'
+import { supabase } from '../../shared/database/supabaseClient.js'
 import type { CreateRequestInput } from './services.schema.js'
 
 export interface ServiceRequestEntity {
@@ -16,111 +16,153 @@ export interface ServiceRequestEntity {
 
 export class ServicesRepository {
   async create(clientId: string, input: CreateRequestInput): Promise<{ id: string }> {
-    const result = await pool.query<{ id: string }>(
-      `INSERT INTO public.service_requests (
-        client_id, category_id, region_id, title, description, budget_min, budget_max, urgency,
-        location_scope, uf, city
-       )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-       RETURNING id`,
-      [
-        clientId,
-        input.categoryId ?? null,
-        input.regionId ?? null,
-        input.title,
-        input.description ?? null,
-        input.budgetMin ?? null,
-        input.budgetMax ?? null,
-        input.urgency ?? 'medium',
-        input.locationScope ?? 'national',
-        input.uf ?? null,
-        input.city ?? null,
-      ],
-    )
+    const { data, error } = await supabase
+      .from('service_requests')
+      .insert({
+        client_id: clientId,
+        category_id: input.categoryId ?? null,
+        region_id: input.regionId ?? null,
+        title: input.title,
+        description: input.description ?? null,
+        budget_min: input.budgetMin ?? null,
+        budget_max: input.budgetMax ?? null,
+        urgency: input.urgency ?? 'medium',
+        location_scope: input.locationScope ?? 'national',
+        uf: input.uf ?? null,
+        city: input.city ?? null,
+      })
+      .select('id')
+      .single()
 
-    if (!result.rows[0]) {
-      throw new Error('Erro ao criar solicitação')
+    if (error || !data) {
+      throw new Error(error?.message || 'Erro ao criar solicitação')
     }
 
-    return result.rows[0]
+    return data
   }
 
   async findByClientId(clientId: string): Promise<ServiceRequestEntity[]> {
-    const result = await pool.query<ServiceRequestEntity>(
-      `SELECT
-        r.id,
-        r.title,
-        r.status,
-        r.urgency,
-        r.created_at,
-        c.name as category_name,
-        g.name as region_name,
-        r.location_scope,
-        r.uf,
-        r.city
-       FROM public.service_requests r
-       LEFT JOIN public.categories c ON c.id = r.category_id
-       LEFT JOIN public.regions g ON g.id = r.region_id
-       WHERE r.client_id = $1
-       ORDER BY r.created_at DESC`,
-      [clientId],
-    )
-    return result.rows
+    const { data, error } = await supabase
+      .from('service_requests')
+      .select(`
+        id,
+        title,
+        status,
+        urgency,
+        created_at,
+        location_scope,
+        uf,
+        city,
+        categories (name),
+        regions (name)
+      `)
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      console.warn('Erro ao buscar solicitações:', error.message)
+      return []
+    }
+
+    return (data || []).map((r: any) => ({
+      id: r.id,
+      title: r.title,
+      status: r.status,
+      urgency: r.urgency,
+      created_at: r.created_at,
+      category_name: r.categories?.name || null,
+      region_name: r.regions?.name || null,
+      location_scope: r.location_scope,
+      uf: r.uf,
+      city: r.city,
+    }))
   }
 
   async findOpenRequests(
     pagination: { page: number; limit: number } = { page: 1, limit: 20 },
   ): Promise<ServiceRequestEntity[]> {
-    const result = await pool.query<ServiceRequestEntity>(
-      `SELECT
-        r.id,
-        r.title,
-        r.status,
-        r.urgency,
-        r.created_at,
-        c.name as category_name,
-        g.name as region_name,
-        r.location_scope,
-        r.uf,
-        r.city
-       FROM public.service_requests r
-       LEFT JOIN public.categories c ON c.id = r.category_id
-       LEFT JOIN public.regions g ON g.id = r.region_id
-       WHERE r.status = 'open'
-       ORDER BY 
-        CASE WHEN r.urgency = 'high' THEN 1 ELSE 2 END ASC,
-        r.created_at DESC
-       LIMIT $1 OFFSET $2`,
-      [pagination.limit, (pagination.page - 1) * pagination.limit],
-    )
+    const offset = (pagination.page - 1) * pagination.limit
 
-    return result.rows
+    const { data, error } = await supabase
+      .from('service_requests')
+      .select(`
+        id,
+        title,
+        status,
+        urgency,
+        created_at,
+        location_scope,
+        uf,
+        city,
+        categories (name),
+        regions (name)
+      `)
+      .eq('status', 'open')
+      .order('urgency', { ascending: true })
+      .order('created_at', { ascending: false })
+      .range(offset, offset + pagination.limit - 1)
+
+    if (error) {
+      console.warn('Erro ao buscar solicitações abertas:', error.message)
+      return []
+    }
+
+    return (data || []).map((r: any) => ({
+      id: r.id,
+      title: r.title,
+      status: r.status,
+      urgency: r.urgency,
+      created_at: r.created_at,
+      category_name: r.categories?.name || null,
+      region_name: r.regions?.name || null,
+      location_scope: r.location_scope,
+      uf: r.uf,
+      city: r.city,
+    }))
   }
 
   async getProposalStats(serviceRequestId: string) {
-    const statsResult = await pool.query<{ count: string; avg_value: string }>(
-      `SELECT 
-        COUNT(*)::text as count, 
-        AVG(value::numeric)::text as avg_value 
-       FROM public.proposals 
-       WHERE service_request_id = $1 AND status != 'cancelled'`,
-      [serviceRequestId]
-    )
+    // Get proposal stats
+    const { data: proposals, error: proposalsError } = await supabase
+      .from('proposals')
+      .select('value')
+      .eq('service_request_id', serviceRequestId)
+      .neq('status', 'cancelled')
 
-    const professionalsResult = await pool.query<{ name: string; avatar_url: string | null }>(
-      `SELECT DISTINCT u.name, u.avatar_url
-       FROM public.proposals p
-       JOIN public.professional_profiles pp ON pp.id = p.professional_id
-       JOIN public.users u ON u.id = pp.user_id
-       WHERE p.service_request_id = $1 AND p.status != 'cancelled'
-       LIMIT 5`,
-      [serviceRequestId]
-    )
+    if (proposalsError) {
+      console.warn('Erro ao buscar stats de propostas:', proposalsError.message)
+    }
+
+    const count = proposals?.length || 0
+    const avgValue = count > 0
+      ? proposals!.reduce((sum, p) => sum + parseFloat(p.value || '0'), 0) / count
+      : 0
+
+    // Get professionals who made proposals
+    const { data: professionalsData, error: professionalsError } = await supabase
+      .from('proposals')
+      .select(`
+        professional_profiles!inner (
+          users!inner (name, avatar_url)
+        )
+      `)
+      .eq('service_request_id', serviceRequestId)
+      .neq('status', 'cancelled')
+      .limit(5)
+
+    if (professionalsError) {
+      console.warn('Erro ao buscar profissionais:', professionalsError.message)
+    }
+
+    const professionals = (professionalsData || []).map((p: any) => ({
+      name: p.professional_profiles?.users?.name || null,
+      avatar_url: p.professional_profiles?.users?.avatar_url || null,
+    }))
 
     return {
-      count: parseInt(statsResult.rows[0]?.count || '0', 10),
-      average_value: parseFloat(statsResult.rows[0]?.avg_value || '0'),
-      professionals: professionalsResult.rows
+      count,
+      average_value: avgValue,
+      professionals,
     }
   }
 }

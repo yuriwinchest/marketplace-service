@@ -23,14 +23,14 @@ export function useEditProfile({ auth, apiFetch, onProfileUpdated, apiBaseUrl }:
         let mounted = true
         const load = async () => {
             try {
-                const res = await apiFetch('/api/profile', { method: 'GET' })
+                const res = await apiFetch('/api/users/profile', { method: 'GET' })
                 if (res.ok && mounted) {
-                    const data = await res.json() as { user: User; profile: Profile | null }
-                    if (data.user?.name) setName(data.user.name)
-                    if (data.profile) {
-                        setBio(data.profile.bio || '')
-                        setPhone(data.profile.phone || '')
-                        setSkills(data.profile.skills?.join(', ') || '')
+                    const json = await res.json() as { success: true; data: { user: User; profile: Profile | null } }
+                    if (json.data.user?.name) setName(json.data.user.name)
+                    if (json.data.profile) {
+                        setBio(json.data.profile.bio || '')
+                        setPhone(json.data.profile.phone || '')
+                        setSkills(json.data.profile.skills?.join(', ') || '')
                     }
                 }
             } catch {
@@ -46,7 +46,7 @@ export function useEditProfile({ auth, apiFetch, onProfileUpdated, apiBaseUrl }:
         setLoading(true)
         try {
             const skillsArray = skills.split(',').map(s => s.trim()).filter(Boolean)
-            const res = await apiFetch('/api/profile', {
+            const res = await apiFetch('/api/users/profile', {
                 method: 'PUT',
                 body: JSON.stringify({
                     name: name || undefined,
@@ -56,8 +56,8 @@ export function useEditProfile({ auth, apiFetch, onProfileUpdated, apiBaseUrl }:
                 }),
             })
             if (!res.ok) {
-                const data = await res.json()
-                throw new Error(data.error || 'Erro ao salvar')
+                const json = await res.json() as { success: false; error?: string }
+                throw new Error(json.error || 'Erro ao salvar')
             }
             await onProfileUpdated()
             onSuccess()
@@ -74,7 +74,7 @@ export function useEditProfile({ auth, apiFetch, onProfileUpdated, apiBaseUrl }:
         try {
             const formData = new FormData()
             formData.append('avatar', file)
-            const res = await fetch(`${apiBaseUrl}/api/profile/avatar`, {
+            const res = await fetch(`${apiBaseUrl}/api/users/profile/avatar`, {
                 method: 'POST',
                 headers: { Authorization: `Bearer ${auth.token}` },
                 body: formData,

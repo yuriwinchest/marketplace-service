@@ -1,4 +1,4 @@
-import { pool } from '../../shared/database/connection.js'
+import { supabase } from '../../shared/database/supabaseClient.js'
 
 export interface ContactData {
   email: string | null
@@ -14,72 +14,117 @@ export interface ProposalStatus {
 
 export class ContactRepository {
   async getProfessionalContact(professionalId: string): Promise<ContactData | null> {
-    const result = await pool.query<ContactData>(
-      `SELECT 
-        u.email,
-        pp.phone,
-        pp.whatsapp,
-        u.name
-       FROM public.professional_profiles pp
-       JOIN public.users u ON u.id = pp.user_id
-       WHERE pp.id = $1`,
-      [professionalId],
-    )
-    return result.rows[0] || null
+    const { data, error } = await supabase
+      .from('professional_profiles')
+      .select(`
+        phone,
+        whatsapp,
+        users!inner (email, name)
+      `)
+      .eq('id', professionalId)
+      .single()
+
+    if (error && error.code !== 'PGRST116') {
+      console.warn('Erro ao buscar contato do profissional:', error.message)
+    }
+
+    if (!data) return null
+
+    return {
+      email: (data as any).users?.email || null,
+      phone: data.phone,
+      whatsapp: data.whatsapp,
+      name: (data as any).users?.name || null,
+    }
   }
 
   async getClientContact(clientId: string): Promise<ContactData | null> {
-    const result = await pool.query<ContactData>(
-      `SELECT email, null as phone, null as whatsapp, name
-       FROM public.users
-       WHERE id = $1`,
-      [clientId],
-    )
-    return result.rows[0] || null
+    const { data, error } = await supabase
+      .from('users')
+      .select('email, name')
+      .eq('id', clientId)
+      .single()
+
+    if (error && error.code !== 'PGRST116') {
+      console.warn('Erro ao buscar contato do cliente:', error.message)
+    }
+
+    if (!data) return null
+
+    return {
+      email: data.email,
+      phone: null,
+      whatsapp: null,
+      name: data.name,
+    }
   }
 
   async findProposalByServiceRequestAndProfessional(
     serviceRequestId: string,
     professionalId: string,
   ): Promise<ProposalStatus | null> {
-    const result = await pool.query<ProposalStatus>(
-      `SELECT status, service_request_id
-       FROM public.proposals
-       WHERE service_request_id = $1 AND professional_id = $2`,
-      [serviceRequestId, professionalId],
-    )
-    return result.rows[0] || null
+    const { data, error } = await supabase
+      .from('proposals')
+      .select('status, service_request_id')
+      .eq('service_request_id', serviceRequestId)
+      .eq('professional_id', professionalId)
+      .single()
+
+    if (error && error.code !== 'PGRST116') {
+      console.warn('Erro ao buscar proposta:', error.message)
+    }
+    return data || null
   }
 
   async getServiceRequestClient(serviceRequestId: string): Promise<string | null> {
-    const result = await pool.query<{ client_id: string }>(
-      `SELECT client_id FROM public.service_requests WHERE id = $1`,
-      [serviceRequestId],
-    )
-    return result.rows[0]?.client_id || null
+    const { data, error } = await supabase
+      .from('service_requests')
+      .select('client_id')
+      .eq('id', serviceRequestId)
+      .single()
+
+    if (error && error.code !== 'PGRST116') {
+      console.warn('Erro ao buscar cliente da solicitação:', error.message)
+    }
+    return data?.client_id || null
   }
 
   async getProfessionalIdByUserId(userId: string): Promise<string | null> {
-    const result = await pool.query<{ id: string }>(
-      `SELECT id FROM public.professional_profiles WHERE user_id = $1`,
-      [userId],
-    )
-    return result.rows[0]?.id || null
+    const { data, error } = await supabase
+      .from('professional_profiles')
+      .select('id')
+      .eq('user_id', userId)
+      .single()
+
+    if (error && error.code !== 'PGRST116') {
+      console.warn('Erro ao buscar ID do profissional:', error.message)
+    }
+    return data?.id || null
   }
 
   async getSubscriptionStatus(professionalId: string): Promise<string | null> {
-    const result = await pool.query<{ status: string }>(
-      `SELECT status FROM public.subscriptions WHERE professional_id = $1`,
-      [professionalId],
-    )
-    return result.rows[0]?.status || null
+    const { data, error } = await supabase
+      .from('subscriptions')
+      .select('status')
+      .eq('professional_id', professionalId)
+      .single()
+
+    if (error && error.code !== 'PGRST116') {
+      console.warn('Erro ao buscar status da assinatura:', error.message)
+    }
+    return data?.status || null
   }
 
   async getServiceRequestStatus(serviceRequestId: string): Promise<string | null> {
-    const result = await pool.query<{ status: string }>(
-      `SELECT status FROM public.service_requests WHERE id = $1`,
-      [serviceRequestId],
-    )
-    return result.rows[0]?.status || null
+    const { data, error } = await supabase
+      .from('service_requests')
+      .select('status')
+      .eq('id', serviceRequestId)
+      .single()
+
+    if (error && error.code !== 'PGRST116') {
+      console.warn('Erro ao buscar status da solicitação:', error.message)
+    }
+    return data?.status || null
   }
 }

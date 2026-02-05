@@ -50,7 +50,6 @@ export function useServiceFilters(
     // Load cities when UF changes
     useEffect(() => {
         if (!filters.uf) {
-            setCities([])
             return
         }
         fetch(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${filters.uf}/municipios?orderBy=nome`)
@@ -83,6 +82,7 @@ export function useServiceFilters(
     }
 
     const updateFilter = (key: keyof Filters, value: string) => {
+        if (key === 'uf') setCities([])
         setFilters(prev => {
             const newFilters = { ...prev, [key]: value }
             if (key === 'uf') newFilters.city = '' // Reset city when UF changes

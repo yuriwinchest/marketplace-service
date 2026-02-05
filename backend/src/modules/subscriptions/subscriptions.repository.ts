@@ -1,4 +1,4 @@
-import { pool } from '../../shared/database/connection.js'
+import { supabase } from '../../shared/database/supabaseClient.js'
 import type { CreateSubscriptionInput, UpdateSubscriptionStatusInput } from './subscriptions.schema.js'
 
 export interface SubscriptionEntity {
@@ -16,92 +16,100 @@ export interface SubscriptionEntity {
 
 export class SubscriptionsRepository {
   async findByProfessionalId(professionalId: string): Promise<SubscriptionEntity | null> {
-    const result = await pool.query<SubscriptionEntity>(
-      `SELECT id, professional_id, stripe_subscription_id, stripe_customer_id, 
-              status, current_period_start, current_period_end, cancel_at_period_end,
-              created_at, updated_at
-       FROM public.subscriptions
-       WHERE professional_id = $1`,
-      [professionalId],
-    )
-    return result.rows[0] || null
+    const { data, error } = await supabase
+      .from('subscriptions')
+      .select('id, professional_id, stripe_subscription_id, stripe_customer_id, status, current_period_start, current_period_end, cancel_at_period_end, created_at, updated_at')
+      .eq('professional_id', professionalId)
+      .single()
+
+    if (error && error.code !== 'PGRST116') {
+      console.warn('Erro ao buscar assinatura:', error.message)
+    }
+    return (data as SubscriptionEntity) || null
   }
 
   async findByStripeSubscriptionId(
     stripeSubscriptionId: string,
   ): Promise<SubscriptionEntity | null> {
-    const result = await pool.query<SubscriptionEntity>(
-      `SELECT id, professional_id, stripe_subscription_id, stripe_customer_id,
-              status, current_period_start, current_period_end, cancel_at_period_end,
-              created_at, updated_at
-       FROM public.subscriptions
-       WHERE stripe_subscription_id = $1`,
-      [stripeSubscriptionId],
-    )
-    return result.rows[0] || null
+    const { data, error } = await supabase
+      .from('subscriptions')
+      .select('id, professional_id, stripe_subscription_id, stripe_customer_id, status, current_period_start, current_period_end, cancel_at_period_end, created_at, updated_at')
+      .eq('stripe_subscription_id', stripeSubscriptionId)
+      .single()
+
+    if (error && error.code !== 'PGRST116') {
+      console.warn('Erro ao buscar assinatura por Stripe ID:', error.message)
+    }
+    return (data as SubscriptionEntity) || null
   }
 
   async create(
     professionalId: string,
     input: CreateSubscriptionInput,
   ): Promise<SubscriptionEntity> {
-    const result = await pool.query<SubscriptionEntity>(
-      `INSERT INTO public.subscriptions (professional_id, stripe_subscription_id, stripe_customer_id, status)
-       VALUES ($1, $2, $3, 'active')
-       RETURNING id, professional_id, stripe_subscription_id, stripe_customer_id,
-                 status, current_period_start, current_period_end, cancel_at_period_end,
-                 created_at, updated_at`,
-      [professionalId, input.stripeSubscriptionId, input.stripeCustomerId],
-    )
+    const { data, error } = await supabase
+      .from('subscriptions')
+      .insert({
+        professional_id: professionalId,
+        stripe_subscription_id: input.stripeSubscriptionId,
+        stripe_customer_id: input.stripeCustomerId,
+        status: 'active',
+      })
+      .select('id, professional_id, stripe_subscription_id, stripe_customer_id, status, current_period_start, current_period_end, cancel_at_period_end, created_at, updated_at')
+      .single()
 
-    if (!result.rows[0]) {
-      throw new Error('Erro ao criar assinatura')
+    if (error || !data) {
+      throw new Error(error?.message || 'Erro ao criar assinatura')
     }
 
-    return result.rows[0]
+    return data as SubscriptionEntity
   }
 
   async updateStatus(
     subscriptionId: string,
     input: UpdateSubscriptionStatusInput,
   ): Promise<SubscriptionEntity> {
-    const result = await pool.query<SubscriptionEntity>(
-      `UPDATE public.subscriptions
-       SET status = $1,
-           current_period_start = $2,
-           current_period_end = $3,
-           cancel_at_period_end = COALESCE($4, cancel_at_period_end),
-           updated_at = now()
-       WHERE id = $5
-       RETURNING id, professional_id, stripe_subscription_id, stripe_customer_id,
-                 status, current_period_start, current_period_end, cancel_at_period_end,
-                 created_at, updated_at`,
-      [
-        input.status,
-        input.currentPeriodStart ?? null,
-        input.currentPeriodEnd ?? null,
-        input.cancelAtPeriodEnd ?? null,
-        subscriptionId,
-      ],
-    )
-
-    if (!result.rows[0]) {
-      throw new Error('Assinatura não encontrada')
+    const updateData: any = {
+      status: input.status,
+      updated_at: new Date().toISOString(),
     }
 
-    return result.rows[0]
+    if (input.currentPeriodStart !== undefined) {
+      updateData.current_period_start = input.currentPeriodStart
+    }
+    if (input.currentPeriodEnd !== undefined) {
+      updateData.current_period_end = input.currentPeriodEnd
+    }
+    if (input.cancelAtPeriodEnd !== undefined) {
+      updateData.cancel_at_period_end = input.cancelAtPeriodEnd
+    }
+
+    const { data, error } = await supabase
+      .from('subscriptions')
+      .update(updateData)
+      .eq('id', subscriptionId)
+      .select('id, professional_id, stripe_subscription_id, stripe_customer_id, status, current_period_start, current_period_end, cancel_at_period_end, created_at, updated_at')
+      .single()
+
+    if (error || !data) {
+      throw new Error(error?.message || 'Assinatura não encontrada')
+    }
+
+    return data as SubscriptionEntity
   }
 
   async updateProfessionalProfileStatus(
     professionalId: string,
     status: string,
   ): Promise<void> {
-    await pool.query(
-      `UPDATE public.professional_profiles
-       SET subscription_status = $1
-       WHERE id = $2`,
-      [status, professionalId],
-    )
+    const { error } = await supabase
+      .from('professional_profiles')
+      .update({ subscription_status: status })
+      .eq('id', professionalId)
+
+    if (error) {
+      console.warn('Erro ao atualizar status do perfil:', error.message)
+    }
   }
 
   async isActive(professionalId: string): Promise<boolean> {

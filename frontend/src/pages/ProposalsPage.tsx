@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { AuthState, Proposal } from '../types'
 import { formatCurrency, formatDate, statusClass, statusLabel } from '../utils/formatters'
 
@@ -13,27 +13,27 @@ export function ProposalsPage({ apiFetch }: ProposalsPageProps) {
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState('')
 
-    useEffect(() => {
-        loadProposals()
-    }, [])
-
-    const loadProposals = async () => {
+    const loadProposals = useCallback(async () => {
         setLoading(true)
         setError('')
         try {
             const res = await apiFetch('/api/proposals/me', { method: 'GET' })
             if (res.ok) {
-                const data = await res.json()
-                setProposals(data.proposals || [])
+                const json = await res.json() as { success: true; data: { items: Proposal[] } }
+                setProposals(json.data.items || [])
             } else {
                 setError('Erro ao carregar propostas')
             }
-        } catch (err) {
+        } catch {
             setError('Erro de conexão ao carregar propostas')
         } finally {
             setLoading(false)
         }
-    }
+    }, [apiFetch])
+
+    useEffect(() => {
+        void loadProposals()
+    }, [loadProposals])
 
     const handleCancel = async (proposalId: string) => {
         if (!confirm('Tem certeza que deseja cancelar esta proposta?')) return
@@ -42,12 +42,12 @@ export function ProposalsPage({ apiFetch }: ProposalsPageProps) {
             const res = await apiFetch(`/api/proposals/${proposalId}/cancel`, { method: 'POST' })
             if (res.ok) {
                 alert('Proposta cancelada')
-                loadProposals()
+                void loadProposals()
             } else {
-                const data = await res.json()
-                alert(data.error || 'Erro ao cancelar proposta')
+                const json = await res.json() as { success: false; error?: string }
+                alert(json.error || 'Erro ao cancelar proposta')
             }
-        } catch (err) {
+        } catch {
             alert('Erro de conexão')
         }
     }
