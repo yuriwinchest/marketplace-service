@@ -33,7 +33,8 @@ app.use(
       if (!origin) return callback(null, true)
 
       // Permitir qualquer origem definida na config
-      if (config.cors.origins.includes(origin)) return callback(null, true)
+      const allowedOrigins: string[] = [...config.cors.origins]
+      if (allowedOrigins.includes(origin)) return callback(null, true)
 
       // Permitir qualquer localhost em desenvolvimento (útil se o Vite trocar de porta)
       if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
