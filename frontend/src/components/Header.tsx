@@ -1,6 +1,5 @@
-
-
 import type { View, AuthState } from '../types'
+import './Header.css'
 
 interface HeaderProps {
     view: View
@@ -10,61 +9,114 @@ interface HeaderProps {
 }
 
 export function Header({ view, setView, auth, onLogout }: HeaderProps) {
+    const handleLogoClick = () => {
+        setView(auth.state === 'authenticated' ? 'dashboard' : 'home')
+    }
+
     return (
         <header className="header">
-            <div className="headerInner">
-                <div className="logo" onClick={() => setView(auth.state === 'authenticated' ? 'dashboard' : 'home')}>
-                    <img className="logoImg" src="/logo.png" alt="FazServiço" />
+            <div className="header-container">
+                {/* Logo */}
+                <div
+                    className="header-logo"
+                    onClick={handleLogoClick}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                            handleLogoClick()
+                        }
+                    }}
+                    aria-label="Ir para página inicial"
+                >
+                    <img
+                        className="header-logo-img"
+                        src="/logo.png"
+                        alt="FazServiço - Marketplace de Serviços"
+                    />
                 </div>
 
+                {/* Navigation */}
                 {auth.state === 'authenticated' && (
-                    <nav className="mainNav">
+                    <nav className="header-nav" aria-label="Navegação principal">
                         <button
-                            className={`navItem ${view === 'dashboard' ? 'active' : ''}`}
+                            className={`nav-item ${view === 'dashboard' ? 'active' : ''}`}
                             onClick={() => setView('dashboard')}
+                            aria-current={view === 'dashboard' ? 'page' : undefined}
                         >
-                            Dashboard
+                            <span className="nav-item-icon">📊</span>
+                            <span>Dashboard</span>
                         </button>
+
                         {auth.user.role === 'professional' && (
                             <button
-                                className={`navItem ${view === 'services' ? 'active' : ''}`}
+                                className={`nav-item ${view === 'services' ? 'active' : ''}`}
                                 onClick={() => setView('services')}
+                                aria-current={view === 'services' ? 'page' : undefined}
                             >
-                                Buscar Servicos
+                                <span className="nav-item-icon">🔍</span>
+                                <span>Buscar Serviços</span>
                             </button>
                         )}
+
                         {auth.user.role === 'client' && (
                             <button
-                                className={`navItem ${view === 'my-services' ? 'active' : ''}`}
+                                className={`nav-item ${view === 'my-services' ? 'active' : ''}`}
                                 onClick={() => setView('my-services')}
+                                aria-current={view === 'my-services' ? 'page' : undefined}
                             >
-                                Meus Servicos
+                                <span className="nav-item-icon">📋</span>
+                                <span>Meus Serviços</span>
                             </button>
                         )}
+
                         <button
-                            className={`navItem ${view === 'proposals' ? 'active' : ''}`}
+                            className={`nav-item ${view === 'proposals' ? 'active' : ''}`}
                             onClick={() => setView('proposals')}
+                            aria-current={view === 'proposals' ? 'page' : undefined}
                         >
-                            Propostas
+                            <span className="nav-item-icon">💼</span>
+                            <span>Propostas</span>
                         </button>
                     </nav>
                 )}
 
-                <div className="headerActions">
+                {/* Actions */}
+                <div className="header-actions">
                     {auth.state === 'anonymous' ? (
                         <>
-                            <button className="btnGhost" onClick={() => setView('login')}>Entrar</button>
-                            <button className="btnPrimary" onClick={() => setView('register')}>Cadastrar</button>
+                            <button
+                                className="btn btn-ghost"
+                                onClick={() => setView('login')}
+                            >
+                                Entrar
+                            </button>
+                            <button
+                                className="btn btn-primary"
+                                onClick={() => setView('register')}
+                            >
+                                Cadastrar
+                            </button>
                         </>
                     ) : (
                         <>
                             <button
-                                className="iconBtn"
+                                className="header-profile-btn"
                                 onClick={() => setView('profile')}
+                                aria-label="Ver perfil"
+                                title="Meu Perfil"
                             >
-                                👤
+                                <span className="header-profile-icon">👤</span>
+                                <span className="header-profile-name">
+                                    {auth.user.name?.split(' ')[0] || 'Perfil'}
+                                </span>
                             </button>
-                            <button className="btnGhost" onClick={onLogout}>Sair</button>
+                            <button
+                                className="btn btn-ghost btn-sm"
+                                onClick={onLogout}
+                            >
+                                Sair
+                            </button>
                         </>
                     )}
                 </div>

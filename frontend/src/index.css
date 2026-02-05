@@ -1,10 +1,131 @@
+/* ============================================
+   DESIGN SYSTEM - Marketplace de Serviços
+   Based on interface-design principles
+   ============================================ */
+
 :root {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  line-height: 1.6;
-  font-weight: 400;
+  /* ========== Base Palette - Verde Esmeralda ========== */
+  --emerald-50: #f0fdf4;
+  --emerald-100: #dcfce7;
+  --emerald-200: #bbf7d0;
+  --emerald-300: #86efac;
+  --emerald-400: #4ade80;
+  --emerald-500: #22c55e;
+  --emerald-600: #16a34a;
+  --emerald-700: #15803d;
+  --emerald-800: #166534;
+  --emerald-900: #14532d;
+  --emerald-950: #052e16;
+
+  /* Forest Green - Base escura */
+  --forest-900: #021a0f;
+  --forest-800: #042f1c;
+  --forest-700: #064328;
+  --forest-600: #085d35;
+  --forest-500: #0a7742;
+
+  /* ========== Background - Surface Elevation ========== */
+  --bg-base: linear-gradient(135deg, #021a0f 0%, #042f1c 25%, #064328 50%, #021a0f 100%);
+  --bg-surface-0: rgba(6, 67, 40, 0.15);
+  --bg-surface-1: rgba(6, 67, 40, 0.25);
+  --bg-surface-2: rgba(6, 67, 40, 0.35);
+  --bg-surface-3: rgba(6, 67, 40, 0.45);
+  --bg-overlay: rgba(2, 26, 15, 0.95);
+
+  /* ========== Foreground - Text Hierarchy ========== */
+  --fg-primary: #f0fdf4;
+  --fg-secondary: #dcfce7;
+  --fg-tertiary: #bbf7d0;
+  --fg-muted: #86efac;
+  --fg-disabled: rgba(240, 253, 244, 0.4);
+
+  /* ========== Border - Separation Hierarchy ========== */
+  --border-subtle: rgba(52, 211, 153, 0.08);
+  --border-default: rgba(52, 211, 153, 0.15);
+  --border-strong: rgba(52, 211, 153, 0.25);
+  --border-stronger: rgba(52, 211, 153, 0.4);
+
+  /* ========== Brand - Primary Accent ========== */
+  --brand-primary: #34d399;
+  --brand-primary-hover: #10b981;
+  --brand-primary-active: #059669;
+  --brand-secondary: #6ee7b7;
+
+  /* ========== Semantic - Status Colors ========== */
+  --success: #22c55e;
+  --success-bg: rgba(34, 197, 94, 0.1);
+  --warning: #fbbf24;
+  --warning-bg: rgba(251, 191, 36, 0.1);
+  --error: #ef4444;
+  --error-bg: rgba(239, 68, 68, 0.1);
+  --info: #3b82f6;
+  --info-bg: rgba(59, 130, 246, 0.1);
+
+  /* ========== Spacing ========== */
+  --space-base: 4px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* ========== Typography ========== */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+
+  /* Font Sizes */
+  --text-xs: 0.75rem;    /* 12px */
+  --text-sm: 0.875rem;   /* 14px */
+  --text-base: 1rem;     /* 16px */
+  --text-lg: 1.125rem;   /* 18px */
+  --text-xl: 1.25rem;    /* 20px */
+  --text-2xl: 1.5rem;    /* 24px */
+  --text-3xl: 1.875rem;  /* 30px */
+  --text-4xl: 2.25rem;   /* 36px */
+
+  /* Font Weights */
+  --font-normal: 400;
+  --font-medium: 500;
+  --font-semibold: 600;
+  --font-bold: 700;
+
+  /* Line Heights */
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.75;
+
+  /* ========== Border Radius ========== */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-full: 9999px;
+
+  /* ========== Shadows ========== */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 4px 8px rgba(0, 0, 0, 0.3), 0 2px 4px rgba(0, 0, 0, 0.2);
+  --shadow-xl: 0 8px 16px rgba(0, 0, 0, 0.3), 0 4px 8px rgba(0, 0, 0, 0.2);
+  --shadow-glow: 0 0 20px rgba(52, 211, 153, 0.2);
+
+  /* ========== Transitions ========== */
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-base: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ========== Base Styles ========== */
+  font-family: var(--font-sans);
+  line-height: var(--leading-normal);
+  font-weight: var(--font-normal);
   color-scheme: dark;
-  color: #f0fdf4;
-  background: linear-gradient(135deg, #021a0f 0%, #042f1c 25%, #064328 50%, #021a0f 100%);
+  color: var(--fg-primary);
+  background: var(--bg-base);
   background-attachment: fixed;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -12,6 +133,7 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* ========== Global Resets ========== */
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
@@ -30,38 +152,98 @@ body {
   min-height: 100vh;
 }
 
+/* ========== Typography Elements ========== */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: var(--font-semibold);
+  line-height: var(--leading-tight);
+  color: var(--fg-primary);
+}
+
+h1 { font-size: var(--text-4xl); }
+h2 { font-size: var(--text-3xl); }
+h3 { font-size: var(--text-2xl); }
+h4 { font-size: var(--text-xl); }
+h5 { font-size: var(--text-lg); }
+h6 { font-size: var(--text-base); }
+
+p {
+  line-height: var(--leading-relaxed);
+  color: var(--fg-secondary);
+}
+
+/* ========== Links ========== */
 a {
-  color: #34d399;
+  color: var(--brand-primary);
   text-decoration: none;
+  transition: color var(--transition-fast);
 }
 
 a:hover {
-  color: #10b981;
+  color: var(--brand-primary-hover);
 }
 
+a:active {
+  color: var(--brand-primary-active);
+}
+
+/* ========== Form Elements ========== */
 button, input, textarea, select {
   font: inherit;
   color: inherit;
 }
 
-::selection {
-  background: rgba(16, 185, 129, 0.4);
+button {
+  cursor: pointer;
+  border: none;
+  background: none;
 }
 
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* ========== Selection ========== */
+::selection {
+  background: rgba(52, 211, 153, 0.3);
+  color: var(--fg-primary);
+}
+
+/* ========== Scrollbar ========== */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(4, 47, 28, 0.5);
+  background: var(--bg-surface-0);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(16, 185, 129, 0.3);
-  border-radius: 4px;
+  background: rgba(52, 211, 153, 0.3);
+  border-radius: var(--radius-sm);
+  transition: background var(--transition-fast);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(16, 185, 129, 0.5);
+  background: rgba(52, 211, 153, 0.5);
+}
+
+/* ========== Focus Visible ========== */
+:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 2px;
+}
+
+/* ========== Utility Classes ========== */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
 }

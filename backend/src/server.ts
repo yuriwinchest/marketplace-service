@@ -111,6 +111,21 @@ app.use(
   },
 )
 
+// Serve frontend static files (AFTER API routes)
+const frontendDistPath = path.join(process.cwd(), 'dist')
+if (fs.existsSync(frontendDistPath)) {
+  app.use(express.static(frontendDistPath))
+
+  // SPA fallback - serve index.html for all non-API routes
+  app.use((_req, res) => {
+    res.sendFile(path.join(frontendDistPath, 'index.html'))
+  })
+
+  logger.info(`Servindo frontend de: ${frontendDistPath}`)
+} else {
+  logger.warn(`Diretório frontend não encontrado: ${frontendDistPath}`)
+}
+
 // Start server
 app.listen(config.port, () => {
   logger.info(`Backend rodando em http://localhost:${config.port}`)
