@@ -30,18 +30,19 @@
 
 /* Button Primary */
 .btn-primary {
-  background: var(--brand-primary);
-  color: var(--forest-900);
+  /* Mantem a cor do produto (mesma base usada em .btnPrimary do App.css) */
+  background: var(--primary, var(--brand-primary));
+  color: var(--fg-primary);
 }
 
 .btn-primary:hover {
-  background: var(--brand-primary-hover);
+  background: var(--primary-hover, var(--brand-primary-hover));
   transform: translateY(-1px);
   box-shadow: var(--shadow-md);
 }
 
 .btn-primary:active {
-  background: var(--brand-primary-active);
+  background: var(--brand-primary-active, var(--primary-hover, var(--brand-primary-hover)));
   transform: translateY(0);
 }
 
