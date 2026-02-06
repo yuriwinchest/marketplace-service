@@ -20,8 +20,8 @@ export function EditProfilePage({ auth, setView, apiFetch, onProfileUpdated, api
         uploadAvatar
     } = useEditProfile({ auth, apiFetch, onProfileUpdated, apiBaseUrl })
 
-    const { name, bio, phone, skills } = formState
-    const { setName, setBio, setPhone, setSkills } = setters
+    const { name, description, bio, phone, skills } = formState
+    const { setName, setDescription, setBio, setPhone, setSkills } = setters
     const { loading, error, avatarUploading } = ui
 
     return (
@@ -51,6 +51,15 @@ export function EditProfilePage({ auth, setView, apiFetch, onProfileUpdated, api
                         <label>E-mail</label>
                         <input type="email" defaultValue={auth.user.email} disabled />
                     </div>
+                    <div className="formGroup">
+                        <label>Descrição</label>
+                        <textarea
+                            placeholder="Fale um pouco sobre você (minimo 10 caracteres)"
+                            rows={4}
+                            value={description}
+                            onChange={e => setDescription(e.target.value)}
+                        />
+                    </div>
                     {auth.user.role === 'professional' && (
                         <>
                             <div className="formGroup">
@@ -63,7 +72,7 @@ export function EditProfilePage({ auth, setView, apiFetch, onProfileUpdated, api
                                 />
                             </div>
                             <div className="formGroup">
-                                <label>Bio / Descrição</label>
+                                <label>Bio profissional (opcional)</label>
                                 <textarea
                                     placeholder="Conte um pouco sobre você e sua experiência..."
                                     rows={4}

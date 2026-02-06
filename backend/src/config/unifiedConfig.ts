@@ -14,7 +14,17 @@ export const config = {
     password: process.env.DB_PASSWORD ?? process.env.senh ?? '',
   },
   cors: {
-    origins: ['http://localhost:8080', 'http://127.0.0.1:8080', 'http://localhost:5173', 'http://localhost:3000', 'http://localhost:5174'],
+    origins: [
+      'http://localhost:8080',
+      'http://127.0.0.1:8080',
+      'http://localhost:5173',
+      'http://localhost:3000',
+      'http://localhost:5174',
+      'https://fazserviço.com.br',
+      'http://fazserviço.com.br',
+      'https://xn--fazservio-x3a.com.br',
+      'http://xn--fazservio-x3a.com.br',
+    ],
   },
   uploads: {
     maxFileSize: 5 * 1024 * 1024, // 5MB

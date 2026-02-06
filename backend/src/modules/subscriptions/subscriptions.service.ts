@@ -1,12 +1,18 @@
 import { SubscriptionsRepository } from './subscriptions.repository.js'
 import type { SubscriptionEntity } from './subscriptions.repository.js'
 import type { CreateSubscriptionInput, UpdateSubscriptionStatusInput } from './subscriptions.schema.js'
+import { listPlans } from './subscriptionPlans.js'
+import type { ProposalQuotaStatus } from './subscriptions.repository.js'
 
 export class SubscriptionsService {
   constructor(private repository: SubscriptionsRepository) {}
 
   async getByProfessionalId(professionalId: string): Promise<SubscriptionEntity | null> {
     return this.repository.findByProfessionalId(professionalId)
+  }
+
+  getPlans() {
+    return listPlans()
   }
 
   async create(professionalId: string, input: CreateSubscriptionInput): Promise<SubscriptionEntity> {
@@ -40,5 +46,13 @@ export class SubscriptionsService {
 
   async isActive(professionalId: string): Promise<boolean> {
     return this.repository.isActive(professionalId)
+  }
+
+  async getQuotaStatus(professionalId: string): Promise<ProposalQuotaStatus> {
+    return this.repository.getQuotaStatus(professionalId)
+  }
+
+  async consumeProposalQuota(professionalId: string) {
+    return this.repository.consumeProposalQuota(professionalId)
   }
 }

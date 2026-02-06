@@ -5,6 +5,7 @@ export interface UserEntity {
   id: string
   email: string
   name: string | null
+  description: string | null
   role: string
   password_hash: string
   avatar_url: string | null
@@ -15,7 +16,7 @@ export class AuthRepository {
   async findByEmail(email: string): Promise<UserEntity | null> {
     const { data, error } = await supabase
       .from('users')
-      .select('id, email, password_hash, name, role, avatar_url, created_at')
+      .select('id, email, password_hash, name, description, role, avatar_url, created_at')
       .eq('email', email.toLowerCase())
       .single()
 
@@ -29,6 +30,8 @@ export class AuthRepository {
     email: string,
     passwordHash: string,
     name: string | null,
+    description: string,
+    avatarUrl: string,
     role: string,
   ): Promise<Omit<UserEntity, 'password_hash'>> {
     const { data, error } = await supabase
@@ -37,9 +40,11 @@ export class AuthRepository {
         email: email.toLowerCase(),
         password_hash: passwordHash,
         name: name ?? null,
+        description,
+        avatar_url: avatarUrl,
         role,
       })
-      .select('id, email, name, role, avatar_url, created_at')
+      .select('id, email, name, description, role, avatar_url, created_at')
       .single()
 
     if (error || !data) {

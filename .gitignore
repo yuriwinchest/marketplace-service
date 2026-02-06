@@ -3,6 +3,9 @@ node_modules
 .pnp
 .pnp.js
 
+# Pacotes/arquivos temporarios
+*.tar.gz
+
 # Testing
 coverage
 
@@ -14,11 +17,17 @@ out
 # Misc
 .DS_Store
 *.pem
+nul
+**/nul
 
 # Debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Pastas de ferramentas locais (nao versionar)
+.claude/
+interface-design/
 
 # Environment Variables (Segurança)
 .env
@@ -35,3 +44,12 @@ yarn-error.log*
 # Uploads
 backend/uploads/*
 !backend/uploads/.gitkeep
+
+# Artefatos de build gerados indevidamente dentro de `backend/src`
+backend/src/**/*.js
+backend/src/**/*.js.map
+backend/src/**/*.d.ts
+backend/src/**/*.d.ts.map
+
+# Scripts de debug locais (podem conter tokens/segredos)
+backend/*.ts

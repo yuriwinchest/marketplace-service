@@ -16,6 +16,7 @@ import subscriptionsRoutes from './modules/subscriptions/subscriptions.routes.js
 import proposalsRoutes from './modules/proposals/proposals.routes.js'
 import contactRoutes from './modules/contact/contact.routes.js'
 import notificationsRoutes from './modules/notifications/notifications.routes.js'
+import ratingsRoutes from './modules/ratings/ratings.routes.js'
 
 const app = express()
 
@@ -79,6 +80,7 @@ app.use('/api/subscriptions', generalRateLimit, subscriptionsRoutes)
 app.use('/api/proposals', generalRateLimit, proposalsRoutes)
 app.use('/api/contact', generalRateLimit, contactRoutes)
 app.use('/api/notifications', generalRateLimit, notificationsRoutes)
+app.use('/api/ratings', generalRateLimit, ratingsRoutes)
 
 // Error handler
 app.use(

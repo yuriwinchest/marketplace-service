@@ -1,11 +1,15 @@
 import { supabase } from '../../shared/database/supabaseClient.js'
 import type { CreateRequestInput } from './services.schema.js'
+import { URGENT_PROMOTION_PRICE } from '../subscriptions/subscriptionPlans.js'
 
 export interface ServiceRequestEntity {
   id: string
   title: string
   status: string
   urgency: string
+  is_urgent_promoted: boolean
+  urgent_promotion_price: string | null
+  urgent_promoted_at: string | null
   created_at: string
   category_name: string | null
   region_name: string | null
@@ -49,6 +53,9 @@ export class ServicesRepository {
         title,
         status,
         urgency,
+        is_urgent_promoted,
+        urgent_promotion_price,
+        urgent_promoted_at,
         created_at,
         location_scope,
         uf,
@@ -69,6 +76,9 @@ export class ServicesRepository {
       title: r.title,
       status: r.status,
       urgency: r.urgency,
+      is_urgent_promoted: r.is_urgent_promoted ?? false,
+      urgent_promotion_price: r.urgent_promotion_price ?? null,
+      urgent_promoted_at: r.urgent_promoted_at ?? null,
       created_at: r.created_at,
       category_name: r.categories?.name || null,
       region_name: r.regions?.name || null,
@@ -80,16 +90,20 @@ export class ServicesRepository {
 
   async findOpenRequests(
     pagination: { page: number; limit: number } = { page: 1, limit: 20 },
+    filters: { urgentOnly?: boolean } = {},
   ): Promise<ServiceRequestEntity[]> {
     const offset = (pagination.page - 1) * pagination.limit
 
-    const { data, error } = await supabase
+    let query = supabase
       .from('service_requests')
       .select(`
         id,
         title,
         status,
         urgency,
+        is_urgent_promoted,
+        urgent_promotion_price,
+        urgent_promoted_at,
         created_at,
         location_scope,
         uf,
@@ -98,9 +112,17 @@ export class ServicesRepository {
         regions (name)
       `)
       .eq('status', 'open')
+      .order('is_urgent_promoted', { ascending: false })
+      .order('urgent_promoted_at', { ascending: false, nullsFirst: false })
       .order('urgency', { ascending: true })
       .order('created_at', { ascending: false })
       .range(offset, offset + pagination.limit - 1)
+
+    if (filters.urgentOnly === true) {
+      query = query.eq('is_urgent_promoted', true)
+    }
+
+    const { data, error } = await query
 
     if (error) {
       console.warn('Erro ao buscar solicitações abertas:', error.message)
@@ -112,6 +134,9 @@ export class ServicesRepository {
       title: r.title,
       status: r.status,
       urgency: r.urgency,
+      is_urgent_promoted: r.is_urgent_promoted ?? false,
+      urgent_promotion_price: r.urgent_promotion_price ?? null,
+      urgent_promoted_at: r.urgent_promoted_at ?? null,
       created_at: r.created_at,
       category_name: r.categories?.name || null,
       region_name: r.regions?.name || null,
@@ -119,6 +144,44 @@ export class ServicesRepository {
       uf: r.uf,
       city: r.city,
     }))
+  }
+
+  async promoteUrgent(serviceRequestId: string, clientId: string): Promise<void> {
+    const { data: request, error: requestError } = await supabase
+      .from('service_requests')
+      .select('id, client_id, status, is_urgent_promoted')
+      .eq('id', serviceRequestId)
+      .single()
+
+    if (requestError || !request) {
+      throw new Error('Demanda não encontrada')
+    }
+
+    if (request.client_id !== clientId) {
+      throw new Error('Você não tem permissão para promover esta demanda')
+    }
+
+    if (request.status !== 'open') {
+      throw new Error('Apenas demandas abertas podem ser promovidas como urgentes')
+    }
+
+    if (request.is_urgent_promoted) {
+      return
+    }
+
+    const { error } = await supabase
+      .from('service_requests')
+      .update({
+        is_urgent_promoted: true,
+        urgent_promotion_price: URGENT_PROMOTION_PRICE,
+        urgent_promoted_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', serviceRequestId)
+
+    if (error) {
+      throw new Error(error.message || 'Erro ao promover demanda urgente')
+    }
   }
 
   async getProposalStats(serviceRequestId: string) {

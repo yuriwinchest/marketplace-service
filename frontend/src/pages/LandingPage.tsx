@@ -21,7 +21,11 @@ export function LandingPage({ setView, categories, regions, setSelectedCategoryI
     return (
         <div className="landingPage">
             <section className="heroSection">
+                <div className="heroGlow heroGlowOne" aria-hidden="true" />
+                <div className="heroGlow heroGlowTwo" aria-hidden="true" />
+
                 <div className="heroContent">
+                    <div className="heroPill">Marketplace de servicos para todo o Brasil</div>
                     <h1 className="heroTitle">
                         Conecte-se com os<br />
                         <span className="heroHighlight">melhores freelancers</span>
@@ -34,53 +38,64 @@ export function LandingPage({ setView, categories, regions, setSelectedCategoryI
                         <button className="btnPrimary btnLg" onClick={() => setView('register')}>
                             Comecar agora
                         </button>
-                        <button className="btnSecondary btnLg" onClick={() => setView('login')}>
+                        <button
+                            className="btnPrimary btnLg"
+                            onClick={() => {
+                                setSelectedCategoryId(null)
+                                setView('public-services')
+                            }}
+                        >
+                            Profissionais
+                        </button>
+                        <button className="btnPrimary btnLg" onClick={() => setView('login')}>
                             Ja tenho conta
                         </button>
                     </div>
+
+                    <div className="heroQuickInfo">
+                        <span><strong>{categories.length}</strong> categorias ativas</span>
+                        <span><strong>{regions.length}</strong> regioes cobertas</span>
+                        <span><strong>100%</strong> gratuito para comecar</span>
+                    </div>
                 </div>
+
                 <div className="heroStats">
                     <div className="statCard">
+                        <div className="heroStatIcon">🧩</div>
                         <div className="statNumber">{categories.length}</div>
-                        <div className="statLabel">Categorias</div>
+                        <div className="statLabel">Categorias prontas</div>
                     </div>
                     <div className="statCard">
+                        <div className="heroStatIcon">📍</div>
                         <div className="statNumber">{regions.length}</div>
-                        <div className="statLabel">Regioes</div>
+                        <div className="statLabel">Regioes atendidas</div>
                     </div>
                     <div className="statCard">
-                        <div className="statNumber">100%</div>
-                        <div className="statLabel">Gratuito</div>
+                        <div className="heroStatIcon">⚡</div>
+                        <div className="statNumber">24h</div>
+                        <div className="statLabel">Respostas mais rapidas</div>
                     </div>
                 </div>
             </section>
 
             <section className="categoriesSection">
+                <div className="landingSectionHead">
+                    <span className="sectionTag">Escolha por especialidade</span>
+                    <h2 className="sectionTitle">Categorias disponiveis</h2>
+                    <p className="sectionSubtitle">Encontre rapidamente profissionais na area certa para o seu projeto.</p>
+                </div>
+
                 {categories.length > 0 && (
-                    <div style={{ maxWidth: '600px', margin: '0 auto 3rem' }}>
-                        <div style={{ position: 'relative' }}>
-                            <input
-                                type="text"
-                                placeholder="🔍 Busque por uma categoria..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                style={{
-                                    width: '100%',
-                                    padding: '1rem 1.5rem',
-                                    fontSize: '1.1rem',
-                                    borderRadius: '12px',
-                                    border: '1px solid var(--border)',
-                                    background: 'var(--bg-secondary)',
-                                    color: 'var(--text)',
-                                    outline: 'none',
-                                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.2)'
-                                }}
-                            />
-                        </div>
+                    <div className="categorySearchWrap">
+                        <input
+                            className="categorySearchInput"
+                            type="text"
+                            placeholder="Busque por uma categoria..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
                     </div>
                 )}
-
-                <h2 className="sectionTitle">Categorias disponiveis</h2>
 
                 {publicDataLoading ? (
                     <div className="loading">Carregando categorias...</div>
@@ -112,8 +127,11 @@ export function LandingPage({ setView, categories, regions, setSelectedCategoryI
             </section>
 
             <section className="howSection">
-                <h2 className="sectionTitle">Como funciona</h2>
-                <div className="stepsGrid" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+                <div className="landingSectionHead">
+                    <span className="sectionTag">Fluxo simples e direto</span>
+                    <h2 className="sectionTitle">Como funciona</h2>
+                </div>
+                <div className="stepsGrid">
                     <div className="stepCard">
                         <div className="stepNum">1</div>
                         <h3>Crie sua Conta</h3>

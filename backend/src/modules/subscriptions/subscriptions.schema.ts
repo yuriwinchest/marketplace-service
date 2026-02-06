@@ -1,8 +1,7 @@
 import { z } from 'zod'
 
 export const createSubscriptionSchema = z.object({
-  stripeCustomerId: z.string().min(1, 'Stripe Customer ID é obrigatório'),
-  stripeSubscriptionId: z.string().min(1, 'Stripe Subscription ID é obrigatório'),
+  planCode: z.enum(['starter_20', 'pro_50', 'max_100', 'enterprise_200']),
 })
 
 export const updateSubscriptionStatusSchema = z.object({

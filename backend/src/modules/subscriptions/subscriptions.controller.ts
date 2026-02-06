@@ -3,36 +3,61 @@ import { BaseController } from '../../shared/base/BaseController.js'
 import { SubscriptionsService } from './subscriptions.service.js'
 import { createSubscriptionSchema, updateSubscriptionStatusSchema } from './subscriptions.schema.js'
 import type { AuthedRequest } from '../../shared/types/auth.js'
+import { supabase } from '../../shared/database/supabaseClient.js'
 
 export class SubscriptionsController extends BaseController {
   constructor(private subscriptionsService: SubscriptionsService) {
     super()
   }
 
+  async listPlans(_req: Request, res: Response): Promise<Response> {
+    return this.success(res, { items: this.subscriptionsService.getPlans() })
+  }
+
   async getMySubscription(req: AuthedRequest, res: Response): Promise<Response> {
     try {
-      // Buscar professional_id do usuário
-      const { pool } = await import('../../shared/database/connection.js')
-      const profileResult = await pool.query<{ id: string }>(
-        `SELECT id FROM public.professional_profiles WHERE user_id = $1`,
-        [req.user.id],
-      )
+      const { data: profile, error: profileError } = await supabase
+        .from('professional_profiles')
+        .select('id')
+        .eq('user_id', req.user.id)
+        .single()
 
-      if (!profileResult.rows[0]) {
+      if (profileError || !profile) {
         return this.notFound(res, 'Perfil profissional não encontrado')
       }
 
       const subscription = await this.subscriptionsService.getByProfessionalId(
-        profileResult.rows[0].id,
+        profile.id,
       )
+      const quota = await this.subscriptionsService.getQuotaStatus(profile.id)
 
       if (!subscription) {
-        return this.notFound(res, 'Assinatura não encontrada')
+        return this.success(res, { subscription: null, quota })
       }
 
-      return this.success(res, { subscription })
+      return this.success(res, { subscription, quota })
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro ao buscar assinatura'
+      return this.serverError(res, message)
+    }
+  }
+
+  async getMyQuota(req: AuthedRequest, res: Response): Promise<Response> {
+    try {
+      const { data: profile, error: profileError } = await supabase
+        .from('professional_profiles')
+        .select('id')
+        .eq('user_id', req.user.id)
+        .single()
+
+      if (profileError || !profile) {
+        return this.notFound(res, 'Perfil profissional não encontrado')
+      }
+
+      const quota = await this.subscriptionsService.getQuotaStatus(profile.id)
+      return this.success(res, { quota })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Erro ao buscar limites'
       return this.serverError(res, message)
     }
   }
@@ -44,19 +69,18 @@ export class SubscriptionsController extends BaseController {
     }
 
     try {
-      // Buscar professional_id do usuário
-      const { pool } = await import('../../shared/database/connection.js')
-      const profileResult = await pool.query<{ id: string }>(
-        `SELECT id FROM public.professional_profiles WHERE user_id = $1`,
-        [req.user.id],
-      )
+      const { data: profile, error: profileError } = await supabase
+        .from('professional_profiles')
+        .select('id')
+        .eq('user_id', req.user.id)
+        .single()
 
-      if (!profileResult.rows[0]) {
+      if (profileError || !profile) {
         return this.notFound(res, 'Perfil profissional não encontrado')
       }
 
       const subscription = await this.subscriptionsService.create(
-        profileResult.rows[0].id,
+        profile.id,
         parsed.data,
       )
 

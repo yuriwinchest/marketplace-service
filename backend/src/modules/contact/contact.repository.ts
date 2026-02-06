@@ -12,6 +12,15 @@ export interface ProposalStatus {
   service_request_id: string
 }
 
+export interface ContactUnlockEntity {
+  id: string
+  client_id: string
+  professional_id: string
+  service_request_id: string | null
+  price: string
+  created_at: string
+}
+
 export class ContactRepository {
   async getProfessionalContact(professionalId: string): Promise<ContactData | null> {
     const { data, error } = await supabase
@@ -113,6 +122,45 @@ export class ContactRepository {
       console.warn('Erro ao buscar status da assinatura:', error.message)
     }
     return data?.status || null
+  }
+
+  async hasContactUnlock(clientId: string, professionalId: string): Promise<boolean> {
+    const { count, error } = await supabase
+      .from('contact_unlocks')
+      .select('*', { count: 'exact', head: true })
+      .eq('client_id', clientId)
+      .eq('professional_id', professionalId)
+
+    if (error) {
+      console.warn('Erro ao buscar desbloqueio de contato:', error.message)
+      return false
+    }
+
+    return (count || 0) > 0
+  }
+
+  async createContactUnlock(
+    clientId: string,
+    professionalId: string,
+    price: number,
+    serviceRequestId?: string,
+  ): Promise<ContactUnlockEntity> {
+    const { data, error } = await supabase
+      .from('contact_unlocks')
+      .insert({
+        client_id: clientId,
+        professional_id: professionalId,
+        service_request_id: serviceRequestId ?? null,
+        price,
+      })
+      .select('id, client_id, professional_id, service_request_id, price, created_at')
+      .single()
+
+    if (error || !data) {
+      throw new Error(error?.message || 'Erro ao desbloquear contato')
+    }
+
+    return data as ContactUnlockEntity
   }
 
   async getServiceRequestStatus(serviceRequestId: string): Promise<string | null> {

@@ -1,13 +1,10 @@
 import { ContactRepository } from './contact.repository.js'
 import type { ContactData } from './contact.repository.js'
-import type { GetContactInput } from './contact.schema.js'
-import { SubscriptionsService } from '../subscriptions/subscriptions.service.js'
+import type { GetContactInput, UnlockContactInput } from './contact.schema.js'
+import { DIRECT_CONTACT_PRICE } from '../subscriptions/subscriptionPlans.js'
 
 export class ContactService {
-  constructor(
-    private repository: ContactRepository,
-    private subscriptionsService: SubscriptionsService,
-  ) { }
+  constructor(private repository: ContactRepository) { }
 
   async getContact(
     requesterId: string,
@@ -29,30 +26,77 @@ export class ContactService {
     throw new Error('Operação não permitida')
   }
 
+  async unlockProfessionalContact(
+    clientId: string,
+    input: UnlockContactInput,
+  ): Promise<{ alreadyUnlocked: boolean; price: number }> {
+    const professionalId = await this.repository.getProfessionalIdByUserId(input.userId)
+    if (!professionalId) {
+      throw new Error('Profissional não encontrado')
+    }
+
+    if (input.serviceRequestId) {
+      const requestClientId = await this.repository.getServiceRequestClient(input.serviceRequestId)
+      if (requestClientId !== clientId) {
+        throw new Error('Você não tem permissão para desbloquear este contato')
+      }
+    }
+
+    const alreadyUnlocked = await this.repository.hasContactUnlock(clientId, professionalId)
+    if (alreadyUnlocked) {
+      return { alreadyUnlocked: true, price: DIRECT_CONTACT_PRICE }
+    }
+
+    await this.repository.createContactUnlock(
+      clientId,
+      professionalId,
+      DIRECT_CONTACT_PRICE,
+      input.serviceRequestId,
+    )
+
+    return { alreadyUnlocked: false, price: DIRECT_CONTACT_PRICE }
+  }
+
   private async getProfessionalContactForClient(
     clientId: string,
     professionalUserId: string,
-    serviceRequestId: string,
+    serviceRequestId?: string,
   ): Promise<ContactData> {
-    // Verificar se o cliente é dono da demanda
-    const requestClientId = await this.repository.getServiceRequestClient(serviceRequestId)
-    if (requestClientId !== clientId) {
-      throw new Error('Você não tem permissão para acessar este contato')
-    }
-
     // Buscar professional_id
     const professionalId = await this.repository.getProfessionalIdByUserId(professionalUserId)
     if (!professionalId) {
       throw new Error('Profissional não encontrado')
     }
 
-    // Verificar condições de liberação
-    const canAccess = await this.canAccessContact(professionalId, serviceRequestId)
-    if (!canAccess) {
-      throw new Error('Contato não está disponível. A proposta deve ser aceita ou o profissional deve ter assinatura ativa.')
+    // Se veio com serviceRequest, libera se proposta foi aceita para esta demanda
+    if (serviceRequestId) {
+      const requestClientId = await this.repository.getServiceRequestClient(serviceRequestId)
+      if (requestClientId !== clientId) {
+        throw new Error('Você não tem permissão para acessar este contato')
+      }
+
+      const proposal = await this.repository.findProposalByServiceRequestAndProfessional(
+        serviceRequestId,
+        professionalId,
+      )
+
+      if (proposal?.status === 'accepted') {
+        const contact = await this.repository.getProfessionalContact(professionalId)
+        if (!contact) {
+          throw new Error('Dados de contato não encontrados')
+        }
+        return contact
+      }
     }
 
-    // Retornar dados de contato
+    // Fora da proposta aceita, exige desbloqueio direto pago
+    const hasUnlock = await this.repository.hasContactUnlock(clientId, professionalId)
+    if (!hasUnlock) {
+      throw new Error(
+        `Contato não está disponível. Faça o desbloqueio direto por R$ ${DIRECT_CONTACT_PRICE.toFixed(2)}.`,
+      )
+    }
+
     const contact = await this.repository.getProfessionalContact(professionalId)
     if (!contact) {
       throw new Error('Dados de contato não encontrados')
@@ -66,66 +110,35 @@ export class ContactService {
     clientUserId: string,
     serviceRequestId: string | undefined,
   ): Promise<ContactData> {
+    if (!serviceRequestId) {
+      throw new Error('serviceRequestId é obrigatório para contato com cliente')
+    }
+
     // Buscar professional_id
     const professionalId = await this.repository.getProfessionalIdByUserId(professionalUserId)
     if (!professionalId) {
       throw new Error('Perfil profissional não encontrado')
     }
 
-    // Se há serviceRequestId, verificar se proposta foi aceita
-    if (serviceRequestId) {
-      const proposal = await this.repository.findProposalByServiceRequestAndProfessional(
-        serviceRequestId,
-        professionalId,
-      )
-
-      if (proposal?.status === 'accepted') {
-        // Proposta aceita - contato liberado
-        const contact = await this.repository.getClientContact(clientUserId)
-        if (!contact) {
-          throw new Error('Dados de contato não encontrados')
-        }
-        return contact
-      }
+    const requestClientId = await this.repository.getServiceRequestClient(serviceRequestId)
+    if (!requestClientId || requestClientId !== clientUserId) {
+      throw new Error('Você não tem permissão para acessar este contato')
     }
 
-    // Verificar se profissional tem assinatura ativa que permite contato
-    const hasActiveSubscription = await this.subscriptionsService.isActive(professionalId)
-    if (hasActiveSubscription) {
-      const contact = await this.repository.getClientContact(clientUserId)
-      if (!contact) {
-        throw new Error('Dados de contato não encontrados')
-      }
-      return contact
-    }
-
-    throw new Error('Contato não está disponível. A proposta deve ser aceita ou você deve ter assinatura ativa.')
-  }
-
-  private async canAccessContact(
-    professionalId: string,
-    serviceRequestId: string,
-  ): Promise<boolean> {
-    // Condição 1: Verificar se há proposta aceita
     const proposal = await this.repository.findProposalByServiceRequestAndProfessional(
       serviceRequestId,
       professionalId,
     )
 
-    if (proposal?.status === 'accepted') {
-      // Verificar se demanda está em 'matched' (in_progress)
-      const requestStatus = await this.repository.getServiceRequestStatus(serviceRequestId)
-      if (requestStatus === 'matched') {
-        return true
-      }
+    if (proposal?.status !== 'accepted') {
+      throw new Error('Contato não está disponível. A proposta precisa ser aceita.')
     }
 
-    // Condição 2: Verificar se profissional tem assinatura ativa
-    const hasActiveSubscription = await this.subscriptionsService.isActive(professionalId)
-    if (hasActiveSubscription) {
-      return true
+    const contact = await this.repository.getClientContact(clientUserId)
+    if (!contact) {
+      throw new Error('Dados de contato não encontrados')
     }
 
-    return false
+    return contact
   }
 }

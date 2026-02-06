@@ -4,6 +4,7 @@ export interface UserProfileEntity {
   id: string
   email: string
   name: string | null
+  description: string | null
   role: string
   avatar_url: string | null
   created_at: string
@@ -25,7 +26,7 @@ export class UsersRepository {
   async findById(userId: string): Promise<UserProfileEntity | null> {
     const { data, error } = await supabase
       .from('users')
-      .select('id, email, name, role, avatar_url, created_at')
+      .select('id, email, name, description, role, avatar_url, created_at')
       .eq('id', userId)
       .single()
 
@@ -43,6 +44,18 @@ export class UsersRepository {
 
     if (error) {
       console.warn('Erro ao atualizar nome:', error.message)
+    }
+  }
+
+  async updateDescription(userId: string, description: string): Promise<void> {
+    const { error } = await supabase
+      .from('users')
+      .update({ description })
+      .eq('id', userId)
+
+    if (error) {
+      console.warn('Erro ao atualizar descrição:', error.message)
+      throw new Error(error.message)
     }
   }
 
@@ -130,7 +143,7 @@ export class UsersRepository {
     let query = supabase
       .from('users')
       .select(`
-        id, email, name, role, avatar_url, created_at,
+        id, email, name, description, role, avatar_url, created_at,
         professional_profiles!inner (
           bio, phone, skills, location_scope, uf, city, is_remote, email, whatsapp
         )
@@ -139,10 +152,16 @@ export class UsersRepository {
 
     // Apply location filters
     if (filters.city) {
-      query = query.or(`professional_profiles.city.eq.${filters.city},professional_profiles.is_remote.eq.true`)
+      query = query.or(
+        `city.eq.${filters.city},is_remote.eq.true`,
+        { foreignTable: 'professional_profiles' },
+      )
     }
     if (filters.uf) {
-      query = query.or(`professional_profiles.uf.eq.${filters.uf},professional_profiles.is_remote.eq.true`)
+      query = query.or(
+        `uf.eq.${filters.uf},is_remote.eq.true`,
+        { foreignTable: 'professional_profiles' },
+      )
     }
 
     // Apply pagination
@@ -163,6 +182,7 @@ export class UsersRepository {
       id: user.id,
       email: user.email,
       name: user.name,
+      description: user.description,
       role: user.role,
       avatar_url: user.avatar_url,
       created_at: user.created_at,

@@ -31,7 +31,7 @@ export function Header({ view, setView, auth, onLogout }: HeaderProps) {
                 >
                     <img
                         className="header-logo-img"
-                        src="/logo.png"
+                        src="/logo-header.png"
                         alt="FazServiço - Marketplace de Serviços"
                     />
                 </div>
@@ -86,7 +86,7 @@ export function Header({ view, setView, auth, onLogout }: HeaderProps) {
                     {auth.state === 'anonymous' ? (
                         <>
                             <button
-                                className="btn btn-ghost"
+                                className="btn btn-primary"
                                 onClick={() => setView('login')}
                             >
                                 Entrar

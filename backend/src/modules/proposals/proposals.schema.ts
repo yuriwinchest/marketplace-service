@@ -5,6 +5,8 @@ export const createProposalSchema = z.object({
   value: z.number().positive('Valor deve ser positivo'),
   description: z.string().min(10, 'Descrição deve ter no mínimo 10 caracteres'),
   estimatedDays: z.number().int().positive().optional(),
+  photoUrls: z.array(z.string().url('URL de foto inválida')).max(10).optional(),
+  videoUrls: z.array(z.string().url('URL de vídeo inválida')).max(10).optional(),
 })
 
 export const updateProposalStatusSchema = z.object({

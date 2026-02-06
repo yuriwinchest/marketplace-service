@@ -13,7 +13,7 @@ export class ProposalsService {
   ) { }
 
   async create(
-    userId: string,
+    _userId: string,
     professionalId: string,
     input: CreateProposalInput,
   ): Promise<ProposalEntity> {
@@ -29,11 +29,8 @@ export class ProposalsService {
       throw new Error('Apenas demandas abertas podem receber propostas')
     }
 
-    // Verificar assinatura ativa
-    const hasActiveSubscription = await this.subscriptionsService.isActive(professionalId)
-    if (!hasActiveSubscription) {
-      throw new Error('Assinatura ativa é necessária para enviar propostas')
-    }
+    // Consumir limite: 3 gratuitas e depois plano mensal
+    await this.subscriptionsService.consumeProposalQuota(professionalId)
 
     // Obter o ID do cliente dono da demanda
     const { data: request } = await supabase

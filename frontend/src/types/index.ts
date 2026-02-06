@@ -41,6 +41,7 @@ export interface User {
   id: string
   email: string
   name: string | null
+  description?: string | null
   role: UserRole
   avatar_url?: string | null
 }

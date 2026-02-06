@@ -9,7 +9,9 @@ const repository = new SubscriptionsRepository()
 const service = new SubscriptionsService(repository)
 const controller = new SubscriptionsController(service)
 
+router.get('/plans', (req, res) => controller.listPlans(req, res))
 router.get('/me', authMiddleware, (req, res) => controller.getMySubscription(req as any, res))
+router.get('/me/quota', authMiddleware, (req, res) => controller.getMyQuota(req as any, res))
 router.post('/', authMiddleware, (req, res) => controller.create(req as any, res))
 router.post('/webhook', (req, res) => controller.webhook(req, res))
 

@@ -8,6 +8,8 @@ export interface ProposalEntity {
   value: string
   description: string
   estimated_days: number | null
+  photo_urls: string[]
+  video_urls: string[]
   status: 'pending' | 'accepted' | 'rejected' | 'cancelled'
   created_at: string
   updated_at: string
@@ -29,8 +31,10 @@ export class ProposalsRepository {
         value: input.value,
         description: input.description,
         estimated_days: input.estimatedDays ?? null,
+        photo_urls: input.photoUrls ?? [],
+        video_urls: input.videoUrls ?? [],
       })
-      .select('id, service_request_id, professional_id, value, description, estimated_days, status, created_at, updated_at')
+      .select('id, service_request_id, professional_id, value, description, estimated_days, photo_urls, video_urls, status, created_at, updated_at')
       .single()
 
     if (error || !data) {
@@ -45,7 +49,7 @@ export class ProposalsRepository {
       .from('proposals')
       .select(`
         id, service_request_id, professional_id, value, description,
-        estimated_days, status, created_at, updated_at,
+        estimated_days, photo_urls, video_urls, status, created_at, updated_at,
         professional_profiles!inner (
           users!inner (name)
         ),
@@ -66,6 +70,8 @@ export class ProposalsRepository {
       value: p.value,
       description: p.description,
       estimated_days: p.estimated_days,
+      photo_urls: p.photo_urls || [],
+      video_urls: p.video_urls || [],
       status: p.status,
       created_at: p.created_at,
       updated_at: p.updated_at,
@@ -80,7 +86,7 @@ export class ProposalsRepository {
       .from('proposals')
       .select(`
         id, service_request_id, professional_id, value, description,
-        estimated_days, status, created_at, updated_at,
+        estimated_days, photo_urls, video_urls, status, created_at, updated_at,
         professional_profiles!inner (
           users!inner (name)
         ),
@@ -101,6 +107,8 @@ export class ProposalsRepository {
       value: p.value,
       description: p.description,
       estimated_days: p.estimated_days,
+      photo_urls: p.photo_urls || [],
+      video_urls: p.video_urls || [],
       status: p.status,
       created_at: p.created_at,
       updated_at: p.updated_at,
@@ -113,7 +121,7 @@ export class ProposalsRepository {
   async findById(proposalId: string): Promise<ProposalEntity | null> {
     const { data, error } = await supabase
       .from('proposals')
-      .select('id, service_request_id, professional_id, value, description, estimated_days, status, created_at, updated_at')
+      .select('id, service_request_id, professional_id, value, description, estimated_days, photo_urls, video_urls, status, created_at, updated_at')
       .eq('id', proposalId)
       .single()
 
@@ -145,7 +153,7 @@ export class ProposalsRepository {
       .from('proposals')
       .update({ status: input.status, updated_at: new Date().toISOString() })
       .eq('id', proposalId)
-      .select('id, service_request_id, professional_id, value, description, estimated_days, status, created_at, updated_at')
+      .select('id, service_request_id, professional_id, value, description, estimated_days, photo_urls, video_urls, status, created_at, updated_at')
       .single()
 
     if (error || !data) {

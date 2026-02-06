@@ -11,6 +11,7 @@ interface UseEditProfileProps {
 
 export function useEditProfile({ auth, apiFetch, onProfileUpdated, apiBaseUrl }: UseEditProfileProps) {
     const [name, setName] = useState(auth.user.name || '')
+    const [description, setDescription] = useState(auth.user.description || '')
     const [bio, setBio] = useState('')
     const [phone, setPhone] = useState('')
     const [skills, setSkills] = useState('')
@@ -27,6 +28,9 @@ export function useEditProfile({ auth, apiFetch, onProfileUpdated, apiBaseUrl }:
                 if (res.ok && mounted) {
                     const json = await res.json() as { success: true; data: { user: User; profile: Profile | null } }
                     if (json.data.user?.name) setName(json.data.user.name)
+                    if (json.data.user?.description !== undefined && json.data.user?.description !== null) {
+                        setDescription(json.data.user.description)
+                    }
                     if (json.data.profile) {
                         setBio(json.data.profile.bio || '')
                         setPhone(json.data.profile.phone || '')
@@ -50,6 +54,7 @@ export function useEditProfile({ auth, apiFetch, onProfileUpdated, apiBaseUrl }:
                 method: 'PUT',
                 body: JSON.stringify({
                     name: name || undefined,
+                    description: description || undefined,
                     bio: bio || undefined,
                     phone: phone || undefined,
                     skills: skillsArray.length > 0 ? skillsArray : undefined,
@@ -99,8 +104,8 @@ export function useEditProfile({ auth, apiFetch, onProfileUpdated, apiBaseUrl }:
     }
 
     return {
-        formState: { name, bio, phone, skills },
-        setters: { setName, setBio, setPhone, setSkills },
+        formState: { name, description, bio, phone, skills },
+        setters: { setName, setDescription, setBio, setPhone, setSkills },
         ui: { loading, error, avatarUploading },
         saveProfile,
         uploadAvatar

@@ -13,5 +13,6 @@ router.post('/', authMiddleware, (req, res) => controller.createRequest(req as a
 router.get('/', authMiddleware, (req, res) => controller.getClientRequests(req as any, res))
 router.get('/open', (req, res) => controller.getOpenRequests(req as any, res))
 router.get('/:id/stats', authMiddleware, (req, res) => controller.getProposalStats(req as any, res))
+router.post('/:id/promote-urgent', authMiddleware, (req, res) => controller.promoteUrgent(req as any, res))
 
 export default router

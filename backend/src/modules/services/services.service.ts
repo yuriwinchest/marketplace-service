@@ -15,11 +15,16 @@ export class ServicesService {
 
   async getOpenRequests(
     pagination: { page: number; limit: number } = { page: 1, limit: 20 },
+    filters: { urgentOnly?: boolean } = {},
   ): Promise<ServiceRequestEntity[]> {
-    return this.repository.findOpenRequests(pagination)
+    return this.repository.findOpenRequests(pagination, filters)
   }
 
   async getProposalStats(serviceRequestId: string) {
     return this.repository.getProposalStats(serviceRequestId)
+  }
+
+  async promoteUrgent(serviceRequestId: string, clientId: string): Promise<void> {
+    await this.repository.promoteUrgent(serviceRequestId, clientId)
   }
 }

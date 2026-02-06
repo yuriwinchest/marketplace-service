@@ -11,6 +11,8 @@ export function useRegister({ apiBaseUrl, onRegisterSuccess }: UseRegisterProps)
     const [name, setName] = useState('')
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
+    const [description, setDescription] = useState('')
+    const [avatarUrl, setAvatarUrl] = useState('')
     const [role, setRole] = useState<UserRole>('client')
     const [error, setError] = useState<string | null>(null)
     const [loading, setLoading] = useState(false)
@@ -26,6 +28,8 @@ export function useRegister({ apiBaseUrl, onRegisterSuccess }: UseRegisterProps)
                     name: name || undefined,
                     email,
                     password,
+                    description,
+                    avatarUrl,
                     role,
                 }),
             })
@@ -43,8 +47,8 @@ export function useRegister({ apiBaseUrl, onRegisterSuccess }: UseRegisterProps)
     }
 
     return {
-        formState: { name, email, password, role },
-        setters: { setName, setEmail, setPassword, setRole },
+        formState: { name, email, password, description, avatarUrl, role },
+        setters: { setName, setEmail, setPassword, setDescription, setAvatarUrl, setRole },
         ui: { error, loading },
         handleRegister
     }

@@ -11,9 +11,15 @@ interface RegisterPageProps {
 
 export function RegisterPage({ setView, onRegisterSuccess, apiBaseUrl }: RegisterPageProps) {
     const { formState, setters, ui, handleRegister } = useRegister({ apiBaseUrl, onRegisterSuccess })
-    const { name, email, password, role } = formState
-    const { setName, setEmail, setPassword, setRole } = setters
+    const { name, email, password, description, avatarUrl, role } = formState
+    const { setName, setEmail, setPassword, setDescription, setAvatarUrl, setRole } = setters
     const { error, loading } = ui
+
+    const canSubmit =
+        !!email &&
+        !!password &&
+        description.trim().length >= 10 &&
+        avatarUrl.trim().length > 0
 
     return (
         <div className="authPage">
@@ -31,6 +37,40 @@ export function RegisterPage({ setView, onRegisterSuccess, apiBaseUrl }: Registe
                                     value={name}
                                     onChange={e => setName(e.target.value)}
                                 />
+                            </div>
+                            <div className="formGroup">
+                                <label>Descrição</label>
+                                <textarea
+                                    placeholder="Conte um pouco sobre você (minimo 10 caracteres)"
+                                    rows={4}
+                                    value={description}
+                                    onChange={e => setDescription(e.target.value)}
+                                />
+                            </div>
+                            <div className="formGroup">
+                                <label>Foto (link)</label>
+                                <input
+                                    type="url"
+                                    placeholder="https://... (ou cole o link da sua foto)"
+                                    value={avatarUrl}
+                                    onChange={e => setAvatarUrl(e.target.value)}
+                                />
+                                {avatarUrl.trim() && (
+                                    <div style={{ marginTop: '0.75rem' }}>
+                                        <img
+                                            src={avatarUrl}
+                                            alt="Prévia da foto"
+                                            style={{ width: 72, height: 72, borderRadius: 12, objectFit: 'cover' }}
+                                            onError={(e) => {
+                                                // evita loop infinito caso a URL seja inválida
+                                                ; (e.currentTarget as HTMLImageElement).style.display = 'none'
+                                            }}
+                                            onLoad={(e) => {
+                                                ; (e.currentTarget as HTMLImageElement).style.display = 'block'
+                                            }}
+                                        />
+                                    </div>
+                                )}
                             </div>
                             <div className="formGroup">
                                 <label>E-mail</label>
@@ -60,7 +100,7 @@ export function RegisterPage({ setView, onRegisterSuccess, apiBaseUrl }: Registe
                     <button
                         className="btnPrimary btnFull"
                         onClick={handleRegister}
-                        disabled={loading || !email || !password}
+                        disabled={loading || !canSubmit}
                     >
                         {loading ? 'Criando...' : 'Criar conta'}
                     </button>

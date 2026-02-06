@@ -39,7 +39,7 @@ export class ServicesController extends BaseController {
     //   return this.forbidden(res)
     // }
 
-    const { page, limit } = req.query as { page?: string; limit?: string }
+    const { page, limit, urgentOnly } = req.query as { page?: string; limit?: string; urgentOnly?: string }
     const pageNum = page ? parseInt(page, 10) : 1
     const limitNum = limit ? parseInt(limit, 10) : 20
 
@@ -47,7 +47,7 @@ export class ServicesController extends BaseController {
       const requests = await this.servicesService.getOpenRequests({
         page: pageNum,
         limit: limitNum,
-      })
+      }, { urgentOnly: urgentOnly === 'true' })
       return this.success(res, { items: requests })
     } catch (error) {
       return this.serverError(res, 'Erro ao buscar solicitações')
@@ -62,6 +62,25 @@ export class ServicesController extends BaseController {
       return this.success(res, stats)
     } catch (error) {
       return this.serverError(res, 'Erro ao buscar estatísticas')
+    }
+  }
+
+  async promoteUrgent(req: AuthedRequest, res: Response): Promise<Response> {
+    const { id } = req.params
+
+    try {
+      await this.servicesService.promoteUrgent(id as string, req.user.id)
+      return this.success(res, { success: true })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Erro ao promover urgência'
+      if (
+        message.includes('não encontrada') ||
+        message.includes('permissão') ||
+        message.includes('demandas abertas')
+      ) {
+        return this.error(res, message, 400)
+      }
+      return this.serverError(res, message)
     }
   }
 }

@@ -28,6 +28,9 @@ export class UsersService {
     if (input.name !== undefined) {
       await this.repository.updateName(userId, input.name)
     }
+    if (input.description !== undefined) {
+      await this.repository.updateDescription(userId, input.description)
+    }
 
     const user = await this.repository.findById(userId)
     if (!user) {
@@ -69,6 +72,7 @@ export class UsersService {
         id: row.id,
         email: row.email,
         name: row.name,
+        description: row.description,
         role: row.role,
         avatar_url: row.avatar_url,
         created_at: row.created_at

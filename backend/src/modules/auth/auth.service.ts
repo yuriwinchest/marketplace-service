@@ -33,6 +33,8 @@ export class AuthService {
       input.email,
       passwordHash,
       input.name ?? null,
+      input.description,
+      input.avatarUrl,
       role,
     )
 
