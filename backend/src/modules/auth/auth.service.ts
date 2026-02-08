@@ -3,6 +3,7 @@ import type { UserRole } from '../../shared/types/auth.js'
 import { AuthRepository } from './auth.repository.js'
 import { supabaseAnon } from '../../shared/database/supabaseClient.js'
 import { createSupabaseRlsClient } from '../../shared/database/supabaseRlsClient.js'
+import { toPtBrAuthErrorMessage } from '../../shared/i18n/ptBrAuthErrors.js'
 
 export interface AuthResult {
   token: string
@@ -37,11 +38,7 @@ export class AuthService {
     })
 
     if (signUpError) {
-      const msg = signUpError.message || 'Erro ao cadastrar'
-      if (msg.toLowerCase().includes('already registered') || msg.toLowerCase().includes('already exists')) {
-        throw new Error('E-mail já cadastrado')
-      }
-      throw new Error(msg)
+      throw new Error(toPtBrAuthErrorMessage(signUpError.message || 'Erro ao cadastrar'))
     }
 
     const authUserId = signUpData.user?.id
@@ -75,7 +72,7 @@ export class AuthService {
     })
 
     if (error || !data.session || !data.user) {
-      throw new Error('Credenciais inválidas')
+      throw new Error(toPtBrAuthErrorMessage(error?.message || 'Credenciais inválidas'))
     }
 
     const role = (data.user.user_metadata?.role ?? 'client') as UserRole
@@ -95,7 +92,7 @@ export class AuthService {
   async refreshToken(refreshToken: string): Promise<{ token: string; refreshToken: string }> {
     const { data, error } = await supabaseAnon.auth.refreshSession({ refresh_token: refreshToken })
     if (error || !data.session) {
-      throw new Error('Refresh token inválido ou expirado')
+      throw new Error(toPtBrAuthErrorMessage(error?.message || 'Sessão expirada. Faça login novamente.'))
     }
 
     return {
