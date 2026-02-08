@@ -37,6 +37,17 @@ export class AuthController extends BaseController {
       if (message === 'E-mail já cadastrado') {
         return this.error(res, message, 409)
       }
+      if (message.toLowerCase().includes('muitas tentativas')) {
+        return this.error(res, message, 429)
+      }
+      if (
+        message.toLowerCase().includes('e-mail inválido') ||
+        message.toLowerCase().includes('senha') ||
+        message.toLowerCase().includes('foto') ||
+        message.toLowerCase().includes('dados')
+      ) {
+        return this.error(res, message, 400)
+      }
       return this.serverError(res, message)
     }
   }
@@ -52,7 +63,13 @@ export class AuthController extends BaseController {
       return this.success(res, result)
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro ao fazer login'
-      if (message === 'Credenciais inválidas') {
+      const lower = message.toLowerCase()
+      if (
+        lower.includes('credenciais') ||
+        lower.includes('e-mail ou senha') ||
+        lower.includes('confirme seu e-mail') ||
+        lower.includes('muitas tentativas')
+      ) {
         return this.unauthorized(res, message)
       }
       return this.serverError(res, message)
@@ -70,7 +87,7 @@ export class AuthController extends BaseController {
       return this.success(res, result)
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro ao renovar token'
-      if (message.includes('inválido') || message.includes('expirado')) {
+      if (message.toLowerCase().includes('sessão') || message.includes('inválido') || message.includes('expirado')) {
         return this.unauthorized(res, message)
       }
       return this.serverError(res, message)
