@@ -4,7 +4,7 @@ import { UsersService } from './users.service.js'
 import { UsersRepository } from './users.repository.js'
 import { authMiddleware } from '../../shared/middleware/auth.middleware.js'
 import { optionalAuthMiddleware } from '../../shared/middleware/optionalAuth.middleware.js'
-import { upload } from '../../shared/middleware/upload.middleware.js'
+import { persistUploadedImage, upload } from '../../shared/middleware/upload.middleware.js'
 
 const router = Router()
 const repository = new UsersRepository()
@@ -18,6 +18,7 @@ router.post(
   '/profile/avatar',
   authMiddleware,
   upload.single('avatar'),
+  persistUploadedImage,
   (req, res) => controller.updateAvatar(req as any, res),
 )
 

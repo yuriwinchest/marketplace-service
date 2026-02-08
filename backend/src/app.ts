@@ -76,7 +76,17 @@ export const createApp = (opts?: { serveFrontend?: boolean }) => {
   if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true })
   }
-  app.use('/uploads', express.static(uploadsDir, { maxAge: config.nodeEnv === 'production' ? '7d' : 0 }))
+  app.use(
+    '/uploads',
+    express.static(uploadsDir, {
+      maxAge: config.nodeEnv === 'production' ? '7d' : 0,
+      setHeaders: (res) => {
+        // Defense-in-depth: if a malicious file ever slips through, make it harder to execute in the browser.
+        res.setHeader('X-Content-Type-Options', 'nosniff')
+        res.setHeader('Content-Security-Policy', "default-src 'none'; img-src 'self' data:; style-src 'none'; script-src 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; sandbox")
+      },
+    }),
+  )
 
   // Health checks
   app.get('/health', (_req, res) => {
@@ -113,6 +123,13 @@ export const createApp = (opts?: { serveFrontend?: boolean }) => {
         return res.status(400).json({
           success: false,
           error: 'Tipo de arquivo não permitido. Use JPG, PNG, WEBP ou GIF.',
+        })
+      }
+
+      if (err.message === 'Arquivo inválido ou corrompido') {
+        return res.status(400).json({
+          success: false,
+          error: 'Arquivo inválido. Envie uma imagem real (JPG, PNG, WEBP ou GIF).',
         })
       }
 
@@ -157,4 +174,3 @@ export const createApp = (opts?: { serveFrontend?: boolean }) => {
 
   return app
 }
-
