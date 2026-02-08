@@ -1,13 +1,9 @@
 import type { Request, Response, NextFunction } from 'express'
-import * as jwt from 'jsonwebtoken'
-import type { JwtPayload } from 'jsonwebtoken'
-import { config } from '../../config/unifiedConfig.js'
 import type { AuthUser, AuthedRequest } from '../types/auth.js'
+import { supabaseAnon, supabaseAdmin } from '../database/supabaseClient.js'
+import { createSupabaseRlsClient } from '../database/supabaseRlsClient.js'
 
-const jwtLib =
-  ((jwt as unknown as { default?: typeof jwt }).default as typeof jwt | undefined) ?? jwt
-
-export const authMiddleware = (req: Request, res: Response, next: NextFunction): void => {
+export const authMiddleware = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const header = req.header('authorization')
   const token = header?.startsWith('Bearer ') ? header.slice('Bearer '.length) : undefined
 
@@ -17,16 +13,45 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction):
   }
 
   try {
-    const payload = jwtLib.verify(token, config.jwtSecret) as JwtPayload
-    const sub = payload.sub
-    const role = (payload as unknown as { role?: string }).role
-
-    if (typeof sub !== 'string' || !role) {
+    // Validate Supabase access token and map it to internal `public.users.id` (Plan B).
+    const { data, error } = await supabaseAnon.auth.getUser(token)
+    if (error || !data.user) {
       res.status(401).json({ success: false, error: 'Token inválido' })
       return
     }
 
-    ; (req as AuthedRequest).user = { id: sub, role: role as AuthUser['role'] }
+    const authUserId = data.user.id
+
+    const { data: mapping, error: mappingError } = await supabaseAdmin
+      .from('user_identities')
+      .select('user_id')
+      .eq('auth_user_id', authUserId)
+      .single()
+
+    if (mappingError || !mapping?.user_id) {
+      res.status(401).json({ success: false, error: 'Conta não vinculada' })
+      return
+    }
+
+    const { data: internalUser, error: userError } = await supabaseAdmin
+      .from('users')
+      .select('id, role')
+      .eq('id', mapping.user_id)
+      .single()
+
+      if (userError || !internalUser) {
+        res.status(401).json({ success: false, error: 'Usuário não encontrado' })
+        return
+      }
+
+      const authedReq = req as AuthedRequest
+      authedReq.user = {
+        id: internalUser.id,
+        role: internalUser.role as AuthUser['role'],
+      }
+      authedReq.accessToken = token
+      authedReq.db = createSupabaseRlsClient(token)
+
     next()
   } catch {
     res.status(401).json({ success: false, error: 'Token inválido' })

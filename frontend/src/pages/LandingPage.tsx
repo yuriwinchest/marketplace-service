@@ -20,6 +20,9 @@ export function LandingPage({ setView, categories, regions, setSelectedCategoryI
 
     return (
         <div className="landingPage">
+            <div className="constructionBanner" role="alert" aria-live="polite">
+                Aviso: o sistema está em construção. Algumas funcionalidades podem falhar.
+            </div>
             <section className="heroSection">
                 <div className="heroGlow heroGlowOne" aria-hidden="true" />
                 <div className="heroGlow heroGlowTwo" aria-hidden="true" />
@@ -42,10 +45,19 @@ export function LandingPage({ setView, categories, regions, setSelectedCategoryI
                             className="btnPrimary btnLg"
                             onClick={() => {
                                 setSelectedCategoryId(null)
-                                setView('public-services')
+                                setView('professionals')
                             }}
                         >
                             Profissionais
+                        </button>
+                        <button
+                            className="btnPrimary btnLg"
+                            onClick={() => {
+                                setSelectedCategoryId(null)
+                                setView('public-services')
+                            }}
+                        >
+                            Demandas
                         </button>
                         <button className="btnPrimary btnLg" onClick={() => setView('login')}>
                             Ja tenho conta

@@ -14,7 +14,9 @@ export class NotificationsController extends BaseController {
         const limit = Number(req.query.limit) || 20
 
         try {
-            const result = await this.notificationsService.getUserNotifications(req.user.id, page, limit)
+            const db = req.db
+            if (!db) return this.unauthorized(res, 'Não autenticado')
+            const result = await this.notificationsService.getUserNotifications(db, req.user.id, page, limit)
             return this.success(res, result)
         } catch (error) {
             return this.serverError(res, 'Erro ao buscar notificações')
@@ -25,7 +27,9 @@ export class NotificationsController extends BaseController {
         const id = req.params.id as string
 
         try {
-            await this.notificationsService.markAsRead(id, req.user.id)
+            const db = req.db
+            if (!db) return this.unauthorized(res, 'Não autenticado')
+            await this.notificationsService.markAsRead(db, id, req.user.id)
             return this.success(res, { message: 'Notificação marcada como lida' })
         } catch (error) {
             return this.serverError(res, 'Erro ao atualizar notificação')
@@ -34,7 +38,9 @@ export class NotificationsController extends BaseController {
 
     async markAllAsRead(req: AuthedRequest, res: Response): Promise<Response> {
         try {
-            await this.notificationsService.markAllAsRead(req.user.id)
+            const db = req.db
+            if (!db) return this.unauthorized(res, 'Não autenticado')
+            await this.notificationsService.markAllAsRead(db, req.user.id)
             return this.success(res, { message: 'Todas as notificações marcadas como lidas' })
         } catch (error) {
             return this.serverError(res, 'Erro ao atualizar notificações')

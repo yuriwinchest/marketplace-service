@@ -3,7 +3,6 @@ import { BaseController } from '../../shared/base/BaseController.js'
 import { SubscriptionsService } from './subscriptions.service.js'
 import { createSubscriptionSchema, updateSubscriptionStatusSchema } from './subscriptions.schema.js'
 import type { AuthedRequest } from '../../shared/types/auth.js'
-import { supabase } from '../../shared/database/supabaseClient.js'
 
 export class SubscriptionsController extends BaseController {
   constructor(private subscriptionsService: SubscriptionsService) {
@@ -15,8 +14,15 @@ export class SubscriptionsController extends BaseController {
   }
 
   async getMySubscription(req: AuthedRequest, res: Response): Promise<Response> {
+    if (req.user.role !== 'professional') {
+      return this.forbidden(res, 'Apenas profissionais podem acessar assinaturas')
+    }
+
     try {
-      const { data: profile, error: profileError } = await supabase
+      const db = req.db
+      if (!db) return this.unauthorized(res, 'Não autenticado')
+
+      const { data: profile, error: profileError } = await db
         .from('professional_profiles')
         .select('id')
         .eq('user_id', req.user.id)
@@ -28,8 +34,9 @@ export class SubscriptionsController extends BaseController {
 
       const subscription = await this.subscriptionsService.getByProfessionalId(
         profile.id,
+        { db },
       )
-      const quota = await this.subscriptionsService.getQuotaStatus(profile.id)
+      const quota = await this.subscriptionsService.getQuotaStatus(profile.id, { db })
 
       if (!subscription) {
         return this.success(res, { subscription: null, quota })
@@ -43,8 +50,15 @@ export class SubscriptionsController extends BaseController {
   }
 
   async getMyQuota(req: AuthedRequest, res: Response): Promise<Response> {
+    if (req.user.role !== 'professional') {
+      return this.forbidden(res, 'Apenas profissionais podem acessar limites')
+    }
+
     try {
-      const { data: profile, error: profileError } = await supabase
+      const db = req.db
+      if (!db) return this.unauthorized(res, 'Não autenticado')
+
+      const { data: profile, error: profileError } = await db
         .from('professional_profiles')
         .select('id')
         .eq('user_id', req.user.id)
@@ -54,7 +68,7 @@ export class SubscriptionsController extends BaseController {
         return this.notFound(res, 'Perfil profissional não encontrado')
       }
 
-      const quota = await this.subscriptionsService.getQuotaStatus(profile.id)
+      const quota = await this.subscriptionsService.getQuotaStatus(profile.id, { db })
       return this.success(res, { quota })
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro ao buscar limites'
@@ -63,13 +77,20 @@ export class SubscriptionsController extends BaseController {
   }
 
   async create(req: AuthedRequest, res: Response): Promise<Response> {
+    if (req.user.role !== 'professional') {
+      return this.forbidden(res, 'Apenas profissionais podem assinar planos')
+    }
+
     const parsed = createSubscriptionSchema.safeParse(req.body)
     if (!parsed.success) {
       return this.error(res, 'Dados inválidos')
     }
 
     try {
-      const { data: profile, error: profileError } = await supabase
+      const db = req.db
+      if (!db) return this.unauthorized(res, 'Não autenticado')
+
+      const { data: profile, error: profileError } = await db
         .from('professional_profiles')
         .select('id')
         .eq('user_id', req.user.id)

@@ -17,7 +17,9 @@ export class RatingsController extends BaseController {
     }
 
     try {
-      const rating = await this.ratingsService.create(req.user.id, parsed.data)
+      const db = req.db
+      if (!db) return this.unauthorized(res, 'Não autenticado')
+      const rating = await this.ratingsService.create(db, req.user.id, parsed.data)
       return this.created(res, { rating })
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro ao criar avaliação'

@@ -46,10 +46,14 @@
 }
 
 /* Highlight badge */
+.service-card-toprow {
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-start;
+  margin-bottom: var(--space-3);
+}
+
 .service-card-highlight-badge {
-  position: absolute;
-  top: var(--space-4);
-  right: var(--space-4);
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);

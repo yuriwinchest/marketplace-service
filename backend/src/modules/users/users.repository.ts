@@ -1,4 +1,5 @@
-import { supabase } from '../../shared/database/supabaseClient.js'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import { supabaseAnon } from '../../shared/database/supabaseClient.js'
 
 export interface UserProfileEntity {
   id: string
@@ -22,9 +23,24 @@ export interface ProfessionalProfileEntity {
   whatsapp: string | null
 }
 
+export interface PublicProfessionalRow {
+  id: string
+  name: string | null
+  description: string | null
+  role: string
+  avatar_url: string | null
+  created_at: string
+  bio: string | null
+  skills: string[] | null
+  location_scope: string
+  uf: string | null
+  city: string | null
+  is_remote: boolean
+}
+
 export class UsersRepository {
-  async findById(userId: string): Promise<UserProfileEntity | null> {
-    const { data, error } = await supabase
+  async findById(db: SupabaseClient, userId: string): Promise<UserProfileEntity | null> {
+    const { data, error } = await db
       .from('users')
       .select('id, email, name, description, role, avatar_url, created_at')
       .eq('id', userId)
@@ -36,8 +52,8 @@ export class UsersRepository {
     return data || null
   }
 
-  async updateName(userId: string, name: string): Promise<void> {
-    const { error } = await supabase
+  async updateName(db: SupabaseClient, userId: string, name: string): Promise<void> {
+    const { error } = await db
       .from('users')
       .update({ name })
       .eq('id', userId)
@@ -47,8 +63,8 @@ export class UsersRepository {
     }
   }
 
-  async updateDescription(userId: string, description: string): Promise<void> {
-    const { error } = await supabase
+  async updateDescription(db: SupabaseClient, userId: string, description: string): Promise<void> {
+    const { error } = await db
       .from('users')
       .update({ description })
       .eq('id', userId)
@@ -59,9 +75,9 @@ export class UsersRepository {
     }
   }
 
-  async updateAvatar(userId: string, avatarUrl: string): Promise<string | null> {
+  async updateAvatar(db: SupabaseClient, userId: string, avatarUrl: string): Promise<string | null> {
     // Get old avatar first
-    const { data: oldData } = await supabase
+    const { data: oldData } = await db
       .from('users')
       .select('avatar_url')
       .eq('id', userId)
@@ -69,7 +85,7 @@ export class UsersRepository {
 
     const oldAvatar = oldData?.avatar_url || null
 
-    const { error } = await supabase
+    const { error } = await db
       .from('users')
       .update({ avatar_url: avatarUrl })
       .eq('id', userId)
@@ -82,9 +98,10 @@ export class UsersRepository {
   }
 
   async getProfessionalProfile(
+    db: SupabaseClient,
     userId: string,
   ): Promise<ProfessionalProfileEntity | null> {
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from('professional_profiles')
       .select('bio, phone, skills, location_scope, uf, city, is_remote, email, whatsapp')
       .eq('user_id', userId)
@@ -97,6 +114,7 @@ export class UsersRepository {
   }
 
   async upsertProfessionalProfile(
+    db: SupabaseClient,
     userId: string,
     data: {
       bio?: string | null | undefined
@@ -110,7 +128,7 @@ export class UsersRepository {
       whatsapp?: string | null | undefined
     },
   ): Promise<void> {
-    const { error } = await supabase
+    const { error } = await db
       .from('professional_profiles')
       .upsert({
         user_id: userId,
@@ -138,29 +156,29 @@ export class UsersRepository {
       uf?: string
     },
     pagination: { page: number; limit: number } = { page: 1, limit: 20 },
-  ): Promise<(UserProfileEntity & ProfessionalProfileEntity)[]> {
-    // Build query for users with professional profiles
-    let query = supabase
-      .from('users')
+  ): Promise<PublicProfessionalRow[]> {
+    // Use public tables (synced from private tables) so we can keep `users`/`professional_profiles`
+    // locked down under RLS while still allowing public listings with joins (no service-role).
+    let query = supabaseAnon
+      .from('professional_public_users')
       .select(`
-        id, email, name, description, role, avatar_url, created_at,
-        professional_profiles!inner (
-          bio, phone, skills, location_scope, uf, city, is_remote, email, whatsapp
+        user_id, name, description, role, avatar_url, created_at,
+        professional_public_profiles!inner (
+          bio, skills, location_scope, uf, city, is_remote
         )
       `)
-      .eq('role', 'professional')
 
     // Apply location filters
     if (filters.city) {
       query = query.or(
         `city.eq.${filters.city},is_remote.eq.true`,
-        { foreignTable: 'professional_profiles' },
+        { foreignTable: 'professional_public_profiles' },
       )
     }
     if (filters.uf) {
       query = query.or(
         `uf.eq.${filters.uf},is_remote.eq.true`,
-        { foreignTable: 'professional_profiles' },
+        { foreignTable: 'professional_public_profiles' },
       )
     }
 
@@ -177,24 +195,20 @@ export class UsersRepository {
       return []
     }
 
-    // Flatten the nested structure
-    return (data || []).map((user: any) => ({
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      description: user.description,
-      role: user.role,
-      avatar_url: user.avatar_url,
-      created_at: user.created_at,
-      bio: user.professional_profiles?.bio || null,
-      phone: user.professional_profiles?.phone || null,
-      skills: user.professional_profiles?.skills || null,
-      location_scope: user.professional_profiles?.location_scope || 'national',
-      uf: user.professional_profiles?.uf || null,
-      city: user.professional_profiles?.city || null,
-      is_remote: user.professional_profiles?.is_remote || false,
-      prof_email: user.professional_profiles?.email || null,
-      whatsapp: user.professional_profiles?.whatsapp || null,
+    // Flatten the nested structure to a stable public row shape.
+    return (data || []).map((u: any) => ({
+      id: u.user_id,
+      name: u.name ?? null,
+      description: u.description ?? null,
+      role: u.role ?? 'professional',
+      avatar_url: u.avatar_url ?? null,
+      created_at: u.created_at,
+      bio: u.professional_public_profiles?.bio ?? null,
+      skills: u.professional_public_profiles?.skills ?? null,
+      location_scope: u.professional_public_profiles?.location_scope ?? 'national',
+      uf: u.professional_public_profiles?.uf ?? null,
+      city: u.professional_public_profiles?.city ?? null,
+      is_remote: u.professional_public_profiles?.is_remote ?? false,
     }))
   }
 }

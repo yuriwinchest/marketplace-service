@@ -19,9 +19,19 @@ export class AuthController extends BaseController {
       return this.error(res, 'Dados inválidos')
     }
 
+    const file = (req as any).file as { filename?: string } | undefined
+    const fileAvatarUrl = file?.filename ? `/uploads/${file.filename}` : undefined
+    const avatarUrl = fileAvatarUrl ?? parsed.data.avatarUrl
+    if (!avatarUrl || !String(avatarUrl).trim()) {
+      return this.error(res, 'Foto é obrigatória')
+    }
+
     try {
-      const user = await this.authService.register(parsed.data)
-      return this.created(res, { user })
+      const result = await this.authService.register({
+        ...parsed.data,
+        avatarUrl,
+      })
+      return this.created(res, { userId: result.id })
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro ao cadastrar'
       if (message === 'E-mail já cadastrado') {

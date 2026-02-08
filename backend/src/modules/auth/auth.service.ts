@@ -1,81 +1,129 @@
-import * as jwt from 'jsonwebtoken'
-import { config } from '../../config/unifiedConfig.js'
-import { AuthRepository } from './auth.repository.js'
-import type { UserEntity } from './auth.repository.js'
 import type { RegisterInput, LoginInput } from './auth.schema.js'
-import { AuthRefreshService } from './auth.refresh.service.js'
-
-const jwtLib =
-  ((jwt as unknown as { default?: typeof jwt }).default as typeof jwt | undefined) ?? jwt
+import type { UserRole } from '../../shared/types/auth.js'
+import { AuthRepository } from './auth.repository.js'
+import { supabaseAnon } from '../../shared/database/supabaseClient.js'
 
 export interface AuthResult {
   token: string
   refreshToken: string
-  user: Omit<UserEntity, 'password_hash'>
+  user: {
+    id: string
+    email: string
+    name: string | null
+    description: string | null
+    role: UserRole
+    avatar_url: string | null
+    created_at: string
+  }
 }
 
 export class AuthService {
-  constructor(
-    private repository: AuthRepository,
-    private refreshService: AuthRefreshService,
-  ) { }
+  constructor(private repository: AuthRepository) {}
 
-  async register(input: RegisterInput): Promise<Omit<UserEntity, 'password_hash'>> {
-    const existingUser = await this.repository.findByEmail(input.email)
-    if (existingUser) {
-      throw new Error('E-mail já cadastrado')
+  async register(input: RegisterInput): Promise<{ id: string }> {
+    const avatarUrl = input.avatarUrl
+    if (!avatarUrl) throw new Error('Foto é obrigatória')
+
+    // 1) Create Supabase Auth user
+    const { data: signUpData, error: signUpError } = await supabaseAnon.auth.signUp({
+      email: input.email.toLowerCase(),
+      password: input.password,
+      options: {
+        data: {
+          role: input.role ?? 'client',
+        },
+      },
+    })
+
+    if (signUpError) {
+      const msg = signUpError.message || 'Erro ao cadastrar'
+      if (msg.toLowerCase().includes('already registered') || msg.toLowerCase().includes('already exists')) {
+        throw new Error('E-mail já cadastrado')
+      }
+      throw new Error(msg)
     }
 
-    const passwordHash = await this.repository.hashPassword(input.password)
-    const role = input.role ?? 'client'
+    const authUserId = signUpData.user?.id
+    if (!authUserId) {
+      // This can happen when email confirmation is required.
+      // We still consider the signup successful, but can't create identity mapping without the auth user id.
+      throw new Error('Cadastro criado. Confirme seu e-mail e faça login.')
+    }
 
-    const user = await this.repository.createUser(
-      input.email,
-      passwordHash,
-      input.name ?? null,
-      input.description,
-      input.avatarUrl,
-      role,
-    )
+    // 2) Ensure internal user exists (plan B: separate IDs)
+    const existingInternal = await this.repository.findInternalByEmail(input.email)
+    const role = (existingInternal?.role ?? (input.role ?? 'client')) as UserRole
+    const internalUserId =
+      existingInternal?.id ??
+      (await this.repository.createInternalUser({
+        email: input.email,
+        name: input.name ?? null,
+        description: input.description,
+        avatarUrl,
+        role,
+      }))
+
+    // 3) Link auth user -> internal user
+    await this.repository.upsertIdentityMapping(authUserId, internalUserId)
 
     if (role === 'professional') {
-      await this.repository.createProfessionalProfile(user.id)
+      await this.repository.ensureProfessionalProfile(internalUserId)
     }
 
-    return user
+    return { id: internalUserId }
   }
 
   async login(input: LoginInput): Promise<AuthResult> {
-    const user = await this.repository.findByEmail(input.email)
-    if (!user) {
+    const { data, error } = await supabaseAnon.auth.signInWithPassword({
+      email: input.email.toLowerCase(),
+      password: input.password,
+    })
+
+    if (error || !data.session || !data.user) {
       throw new Error('Credenciais inválidas')
     }
 
-    const isValid = await this.repository.verifyPassword(input.password, user.password_hash)
-    if (!isValid) {
-      throw new Error('Credenciais inválidas')
+    const authUserId = data.user.id
+
+    // Find mapping; if missing, attempt to link by email (useful for gradual migration).
+    let internalUserId = await this.repository.findInternalUserIdByAuthUserId(authUserId)
+    if (!internalUserId) {
+      const internal = await this.repository.findInternalByEmail(input.email)
+      if (!internal) {
+        // Last resort: create a minimal internal user and link it.
+        internalUserId = await this.repository.createInternalUser({
+          email: input.email,
+          name: null,
+          description: '',
+          avatarUrl: null,
+          role: 'client',
+        })
+      } else {
+        internalUserId = internal.id
+      }
+
+      await this.repository.upsertIdentityMapping(authUserId, internalUserId)
     }
 
-    // Access token com expiração curta (15 minutos)
-    const token = jwtLib.sign(
-      { sub: user.id, role: user.role },
-      config.jwtSecret,
-      { expiresIn: '15m' },
-    )
-
-    const { password_hash: _, ...userWithoutPassword } = user
-
-    // Gerar refresh token
-    const refreshToken = await this.refreshService.generateRefreshToken(user.id)
+    const internalUser = await this.repository.findInternalById(internalUserId)
+    if (!internalUser) throw new Error('Usuário não encontrado')
 
     return {
-      token,
-      refreshToken,
-      user: userWithoutPassword,
+      token: data.session.access_token,
+      refreshToken: data.session.refresh_token,
+      user: internalUser,
     }
   }
 
   async refreshToken(refreshToken: string): Promise<{ token: string; refreshToken: string }> {
-    return this.refreshService.refreshAccessToken(refreshToken)
+    const { data, error } = await supabaseAnon.auth.refreshSession({ refresh_token: refreshToken })
+    if (error || !data.session) {
+      throw new Error('Refresh token inválido ou expirado')
+    }
+
+    return {
+      token: data.session.access_token,
+      refreshToken: data.session.refresh_token,
+    }
   }
 }

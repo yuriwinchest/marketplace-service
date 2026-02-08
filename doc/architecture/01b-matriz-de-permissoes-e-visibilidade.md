@@ -38,7 +38,7 @@ No ServiçoJá:
 
 | Usuário | Pode ver |
 |------|---------|
-| Visitante | ❌ Não |
+| Visitante | ✅ Sim |
 | Cliente | ✅ Sim |
 | Profissional | ❌ Não |
 | Profissional Assinante | ❌ Não |
@@ -51,13 +51,17 @@ No ServiçoJá:
 
 A decisão ocorre no **Service**, nunca no frontend.
 
+### Regra de Privacidade (Obrigatória)
+- Mesmo quando o profissional for visível para **visitantes** e **clientes**, os dados de contato **NUNCA** devem ser expostos em listagens públicas.
+- Em listagens, o backend deve retornar apenas dados públicos (ex.: nome, avatar, descrição, categorias/região, reputação agregada).
+
 ---
 
 ## Visibilidade de Demandas
 
 | Usuário | Pode ver |
 |------|---------|
-| Visitante | ❌ Não |
+| Visitante | ✅ Demandas abertas (sem identidade) |
 | Cliente | ✅ Apenas as próprias |
 | Profissional | ⚠️ Limitado |
 | Profissional Assinante | ✅ Completo |
@@ -65,6 +69,12 @@ A decisão ocorre no **Service**, nunca no frontend.
 ### Regras
 - Regional → apenas profissionais da região
 - Global → profissionais remotos ou globais
+
+### Identidade de Quem Postou a Demanda
+- Em listagens públicas (visitante), a demanda pode ser exibida, mas **NUNCA** deve expor a identidade do cliente (nem `client_id`, nem nome, nem avatar, nem contato).
+- Para visualizar “quem postou” a demanda (identidade do cliente), o usuário deve:
+  - Estar autenticado; e
+  - Ter um **plano ativo** (ex.: profissional com assinatura ativa).
 
 ---
 
@@ -77,7 +87,8 @@ A decisão ocorre no **Service**, nunca no frontend.
 | Profissional Assinante | ✅ Sim |
 
 Regras:
-- Assinatura ativa obrigatória
+- Assinatura ativa obrigatória (plano mensal)
+- O profissional deve ter **créditos de proposta** disponíveis no período (quota do plano: `proposal_limit - proposals_used_in_period`)
 - Proposta vinculada a uma demanda
 
 ---
@@ -88,10 +99,13 @@ Regras:
 
 Contato direto é **bloqueado por padrão**.
 
-Contato liberado somente quando:
-- Proposta aceita  
-OU  
-- Profissional com plano que permita contato
+Contato liberado somente quando existir uma regra explícita. As regras válidas são:
+1) **Proposta aceita** (fluxo padrão do marketplace).
+2) **Desbloqueio direto pago** de R$ **2,99** para acessar o contato daquele profissional.
+
+Observações obrigatórias:
+- O desbloqueio direto é por **profissional** (e opcionalmente pode ser vinculado a uma demanda específica, quando aplicável).
+- Visitantes podem **visualizar** profissionais, mas para **desbloquear contato** precisam estar autenticados (para registrar quem pagou e aplicar auditoria).
 
 Antes disso:
 - Comunicação apenas pela plataforma
@@ -114,7 +128,12 @@ Antes disso:
 - Assinatura controla:
   - Envio de propostas
   - Visibilidade
-  - Contato
+  - Contato (quando a regra de negócio incluir esse benefício)
+
+## Desbloqueio Direto de Contato (R$ 2,99)
+
+- Qualquer usuário autenticado (ex.: cliente) pode pagar **R$ 2,99** para desbloquear o contato de um profissional específico.
+- Esse mecanismo existe para permitir contato fora do fluxo de proposta aceita, mantendo o contato **bloqueado por padrão**.
 
 Stripe é **infraestrutura**, não regra de negócio.
 

@@ -37,6 +37,23 @@ interface-design/
 .env.test.local
 .env.production.local
 
+# Ops / Deploy scripts locais (podem conter IPs, senhas, tokens)
+deploy.ps1
+deploy.local.ps1
+deploy.local.sh
+setup_env_remote.sh
+setup_env_remote_v2.sh
+update_env_remote.ps1
+setup_db.ps1
+setup_db_remote.sh
+setup_ssh_key.ps1
+setup_ssl.ps1
+fix_backend_startup.ps1
+fix_nginx_ssl.ps1
+fix_postgres_config.ps1
+*.local.ps1
+*.local.sh
+
 # IDEs
 .vscode
 .idea

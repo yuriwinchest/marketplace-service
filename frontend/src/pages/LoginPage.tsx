@@ -5,7 +5,7 @@ import { RoleSelector } from '../components/RoleSelector'
 
 interface LoginPageProps {
     setView: (view: View) => void
-    onLoginSuccess: (data: { token: string; user: User }) => void
+    onLoginSuccess: (data: { token: string; refreshToken: string; user: User } | { data: { token: string; refreshToken: string; user: User } }) => void
     apiBaseUrl: string
 }
 

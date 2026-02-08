@@ -1,9 +1,8 @@
 import type { Response } from 'express'
 import { BaseController } from '../../shared/base/BaseController.js'
 import { ProposalsService } from './proposals.service.js'
-import { createProposalSchema, updateProposalStatusSchema } from './proposals.schema.js'
+import { createProposalSchema, updateProposalStatusSchema, updateProposalSchema } from './proposals.schema.js'
 import type { AuthedRequest } from '../../shared/types/auth.js'
-import { supabase } from '../../shared/database/supabaseClient.js'
 
 export class ProposalsController extends BaseController {
   constructor(private proposalsService: ProposalsService) {
@@ -22,7 +21,10 @@ export class ProposalsController extends BaseController {
     }
 
     try {
-      const { data: profile, error: profileError } = await supabase
+      const db = req.db
+      if (!db) return this.unauthorized(res, 'Não autenticado')
+
+      const { data: profile, error: profileError } = await db
         .from('professional_profiles')
         .select('id')
         .eq('user_id', req.user.id)
@@ -33,6 +35,7 @@ export class ProposalsController extends BaseController {
       }
 
       const proposal = await this.proposalsService.create(
+        db,
         req.user.id,
         profile.id,
         parsed.data,
@@ -58,7 +61,10 @@ export class ProposalsController extends BaseController {
 
     try {
       // Verificar se o usuário é dono da demanda
-      const { data: request, error: requestError } = await supabase
+      const db = req.db
+      if (!db) return this.unauthorized(res, 'Não autenticado')
+
+      const { data: request, error: requestError } = await db
         .from('service_requests')
         .select('client_id')
         .eq('id', serviceRequestId)
@@ -72,7 +78,7 @@ export class ProposalsController extends BaseController {
         return this.forbidden(res, 'Você não tem permissão para ver estas propostas')
       }
 
-      const proposals = await this.proposalsService.getByServiceRequest(serviceRequestId)
+      const proposals = await this.proposalsService.getByServiceRequest(db, serviceRequestId)
       return this.success(res, { items: proposals })
     } catch (error) {
       return this.serverError(res, 'Erro ao buscar propostas')
@@ -85,7 +91,10 @@ export class ProposalsController extends BaseController {
     }
 
     try {
-      const { data: profile, error: profileError } = await supabase
+      const db = req.db
+      if (!db) return this.unauthorized(res, 'Não autenticado')
+
+      const { data: profile, error: profileError } = await db
         .from('professional_profiles')
         .select('id')
         .eq('user_id', req.user.id)
@@ -95,10 +104,25 @@ export class ProposalsController extends BaseController {
         return this.notFound(res, 'Perfil profissional não encontrado')
       }
 
-      const proposals = await this.proposalsService.getByProfessional(profile.id)
+      const proposals = await this.proposalsService.getByProfessional(db, profile.id)
       return this.success(res, { items: proposals })
     } catch (error) {
       return this.serverError(res, 'Erro ao buscar propostas')
+    }
+  }
+
+  async getReceivedForClient(req: AuthedRequest, res: Response): Promise<Response> {
+    if (req.user.role !== 'client') {
+      return this.forbidden(res, 'Apenas clientes podem ver propostas recebidas')
+    }
+
+    try {
+      const db = req.db
+      if (!db) return this.unauthorized(res, 'Não autenticado')
+      const items = await this.proposalsService.getReceivedByClient(db, req.user.id)
+      return this.success(res, { items })
+    } catch {
+      return this.serverError(res, 'Erro ao buscar propostas recebidas')
     }
   }
 
@@ -106,7 +130,9 @@ export class ProposalsController extends BaseController {
     const proposalId = req.params.id as string
 
     try {
-      const proposal = await this.proposalsService.acceptProposal(proposalId, req.user.id)
+      const db = req.db
+      if (!db) return this.unauthorized(res, 'Não autenticado')
+      const proposal = await this.proposalsService.acceptProposal(db, proposalId, req.user.id)
       return this.success(res, { proposal })
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro ao aceitar proposta'
@@ -117,11 +143,57 @@ export class ProposalsController extends BaseController {
     }
   }
 
+  async update(req: AuthedRequest, res: Response): Promise<Response> {
+    if (req.user.role !== 'professional') {
+      return this.forbidden(res, 'Apenas profissionais podem editar propostas')
+    }
+
+    const proposalId = req.params.id as string
+
+    const parsed = updateProposalSchema.safeParse(req.body)
+    if (!parsed.success) {
+      return this.error(res, 'Dados inválidos')
+    }
+
+    try {
+      const db = req.db
+      if (!db) return this.unauthorized(res, 'Não autenticado')
+
+      const { data: profile, error: profileError } = await db
+        .from('professional_profiles')
+        .select('id')
+        .eq('user_id', req.user.id)
+        .single()
+
+      if (profileError || !profile) {
+        return this.notFound(res, 'Perfil profissional não encontrado')
+      }
+
+      const updated = await this.proposalsService.updateProposal(
+        db,
+        req.user.id,
+        profile.id,
+        proposalId,
+        parsed.data,
+      )
+
+      return this.success(res, { proposal: updated })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Erro ao editar proposta'
+      if (message.includes('permissão') || message.includes('pendentes') || message.includes('rejeitadas')) {
+        return this.error(res, message, 400)
+      }
+      return this.serverError(res, message)
+    }
+  }
+
   async reject(req: AuthedRequest, res: Response): Promise<Response> {
     const proposalId = req.params.id as string
 
     try {
-      const proposal = await this.proposalsService.rejectProposal(proposalId, req.user.id)
+      const db = req.db
+      if (!db) return this.unauthorized(res, 'Não autenticado')
+      const proposal = await this.proposalsService.rejectProposal(db, proposalId, req.user.id)
       return this.success(res, { proposal })
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro ao rejeitar proposta'
@@ -140,7 +212,10 @@ export class ProposalsController extends BaseController {
     const proposalId = req.params.id as string
 
     try {
-      const { data: profile, error: profileError } = await supabase
+      const db = req.db
+      if (!db) return this.unauthorized(res, 'Não autenticado')
+
+      const { data: profile, error: profileError } = await db
         .from('professional_profiles')
         .select('id')
         .eq('user_id', req.user.id)
@@ -151,6 +226,7 @@ export class ProposalsController extends BaseController {
       }
 
       const proposal = await this.proposalsService.cancelProposal(
+        db,
         proposalId,
         profile.id,
       )

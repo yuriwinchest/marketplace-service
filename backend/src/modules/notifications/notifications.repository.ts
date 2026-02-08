@@ -1,4 +1,5 @@
-import { supabase } from '../../shared/database/supabaseClient.js'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import { supabaseAdmin } from '../../shared/database/supabaseClient.js'
 
 export type NotificationType =
     | 'PROPOSAL_RECEIVED'
@@ -19,6 +20,34 @@ export interface NotificationEntity {
 }
 
 export class NotificationsRepository {
+    async createMany(
+        input: {
+            userId: string
+            title: string
+            message: string
+            type: NotificationType
+            metadata?: Record<string, any>
+        }[],
+    ): Promise<void> {
+        if (input.length === 0) return
+
+        const payload = input.map((n) => ({
+            user_id: n.userId,
+            title: n.title,
+            message: n.message,
+            type: n.type,
+            metadata: n.metadata ?? {},
+        }))
+
+        const { error } = await supabaseAdmin
+            .from('notifications')
+            .insert(payload)
+
+        if (error) {
+            throw new Error(error.message || 'Erro ao criar notificações')
+        }
+    }
+
     async create(
         userId: string,
         title: string,
@@ -26,7 +55,7 @@ export class NotificationsRepository {
         type: NotificationType,
         metadata: Record<string, any> = {}
     ): Promise<NotificationEntity> {
-        const { data, error } = await supabase
+        const { data, error } = await supabaseAdmin
             .from('notifications')
             .insert({
                 user_id: userId,
@@ -45,8 +74,8 @@ export class NotificationsRepository {
         return data as NotificationEntity
     }
 
-    async findByUser(userId: string, limit = 20, offset = 0): Promise<NotificationEntity[]> {
-        const { data, error } = await supabase
+    async findByUser(db: SupabaseClient, userId: string, limit = 20, offset = 0): Promise<NotificationEntity[]> {
+        const { data, error } = await db
             .from('notifications')
             .select('*')
             .eq('user_id', userId)
@@ -60,8 +89,8 @@ export class NotificationsRepository {
         return (data || []) as NotificationEntity[]
     }
 
-    async countUnread(userId: string): Promise<number> {
-        const { count, error } = await supabase
+    async countUnread(db: SupabaseClient, userId: string): Promise<number> {
+        const { count, error } = await db
             .from('notifications')
             .select('*', { count: 'exact', head: true })
             .eq('user_id', userId)
@@ -74,8 +103,8 @@ export class NotificationsRepository {
         return count || 0
     }
 
-    async markAsRead(notificationId: string, userId: string): Promise<void> {
-        const { error } = await supabase
+    async markAsRead(db: SupabaseClient, notificationId: string, userId: string): Promise<void> {
+        const { error } = await db
             .from('notifications')
             .update({ read_at: new Date().toISOString() })
             .eq('id', notificationId)
@@ -86,8 +115,8 @@ export class NotificationsRepository {
         }
     }
 
-    async markAllAsRead(userId: string): Promise<void> {
-        const { error } = await supabase
+    async markAllAsRead(db: SupabaseClient, userId: string): Promise<void> {
+        const { error } = await db
             .from('notifications')
             .update({ read_at: new Date().toISOString() })
             .eq('user_id', userId)

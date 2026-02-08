@@ -9,7 +9,12 @@ export function useAuth() {
         try {
             const parsed = JSON.parse(raw)
             if (parsed.token && parsed.user) {
-                return { state: 'authenticated', token: parsed.token, user: parsed.user }
+                return {
+                    state: 'authenticated',
+                    token: parsed.token,
+                    refreshToken: parsed.refreshToken ?? null,
+                    user: parsed.user
+                }
             }
             return { state: 'anonymous' }
         } catch {
@@ -20,7 +25,7 @@ export function useAuth() {
     const saveAuth = useCallback((next: AuthState) => {
         setAuth(next)
         if (next.state === 'authenticated') {
-            localStorage.setItem('auth', JSON.stringify({ token: next.token, user: next.user }))
+            localStorage.setItem('auth', JSON.stringify({ token: next.token, refreshToken: next.refreshToken, user: next.user }))
         } else {
             localStorage.removeItem('auth')
         }
@@ -35,7 +40,7 @@ export function useAuth() {
         setAuth(prev => {
             if (prev.state !== 'authenticated') return prev
             const next = { ...prev, user }
-            localStorage.setItem('auth', JSON.stringify({ token: next.token, user: next.user }))
+            localStorage.setItem('auth', JSON.stringify({ token: next.token, refreshToken: next.refreshToken, user: next.user }))
             return next
         })
     }, [])

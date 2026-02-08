@@ -4,7 +4,7 @@ import type { User } from '../types'
 
 interface UseLoginProps {
     apiBaseUrl: string
-    onLoginSuccess: (data: { token: string; user: User }) => void
+    onLoginSuccess: (data: { token: string; refreshToken: string; user: User } | { data: { token: string; refreshToken: string; user: User } }) => void
 }
 
 export function useLogin({ apiBaseUrl, onLoginSuccess }: UseLoginProps) {

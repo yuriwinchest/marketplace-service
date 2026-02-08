@@ -15,6 +15,7 @@ import { ProfilePage } from './pages/ProfilePage'
 import { MyServicesPage } from './pages/MyServicesPage'
 import { ProposalsPage } from './pages/ProposalsPage'
 import { ServiceDetailPage } from './pages/ServiceDetailPage'
+import { ProfessionalsPage } from './pages/ProfessionalsPage'
 import { useAuth } from './hooks/useAuth'
 
 import type { View, User, Category, Region, Service } from './types'
@@ -35,21 +36,80 @@ function App() {
   const [loading, setLoading] = useState(false)
 
   const token = auth.state === 'authenticated' ? auth.token : null
+  const refreshToken = auth.state === 'authenticated' ? auth.refreshToken : null
+  const authedUser = auth.state === 'authenticated' ? auth.user : null
 
   const apiFetch = useCallback(
     async (path: string, init?: RequestInit) => {
-      const headers = new Headers(init?.headers)
-      headers.set('Accept', 'application/json')
-      if (init?.body) headers.set('Content-Type', 'application/json')
-      if (token) headers.set('Authorization', `Bearer ${token}`)
+      const doFetch = async (overrideToken?: string | null) => {
+        const headers = new Headers(init?.headers)
+        headers.set('Accept', 'application/json')
+        if (init?.body && !(init?.body instanceof FormData)) headers.set('Content-Type', 'application/json')
+        const t = overrideToken ?? token
+        if (t) headers.set('Authorization', `Bearer ${t}`)
 
-      const res = await fetch(`${API_BASE_URL}${path}`, {
-        ...init,
-        headers,
-      })
-      return res
+        const res = await fetch(`${API_BASE_URL}${path}`, {
+          ...init,
+          headers,
+        })
+        return res
+      }
+
+      const res = await doFetch(token)
+      if (res.status !== 401) return res
+
+      // Avoid loops and refresh only when we have a refresh token.
+      if (!refreshToken) {
+        // Old sessions may not have refresh token stored; force re-login.
+        if (authedUser) {
+          logout()
+          setView('login')
+        }
+        return res
+      }
+      if (path.startsWith('/api/auth/')) return res
+      if (!authedUser) return res
+
+      type RefreshResponse = { token: string; refreshToken: string } | { data: { token: string; refreshToken: string } }
+
+      try {
+        const refreshRes = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+          method: 'POST',
+          headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken }),
+        })
+
+        if (!refreshRes.ok) {
+          // Refresh token invalid/expired; force re-login.
+          logout()
+          setView('login')
+          return res
+        }
+
+        const refreshJson: RefreshResponse = await refreshRes.json()
+        const data = 'data' in refreshJson ? refreshJson.data : refreshJson
+        const nextToken = typeof data.token === 'string' ? data.token : null
+        const nextRefresh = typeof data.refreshToken === 'string' ? data.refreshToken : refreshToken
+        if (!nextToken) {
+          logout()
+          setView('login')
+          return res
+        }
+
+        saveAuth({
+          state: 'authenticated',
+          token: nextToken,
+          refreshToken: nextRefresh ?? null,
+          user: authedUser,
+        })
+
+        return await doFetch(nextToken)
+      } catch {
+        // If refresh fails due to network, keep the original 401.
+        return res
+      }
     },
-    [token],
+    [authedUser, logout, refreshToken, saveAuth, setView, token],
   )
 
   const loadPublicData = useCallback(async () => {
@@ -147,9 +207,9 @@ function App() {
     setView('home')
   }, [logout])
 
-  const handleLoginSuccess = useCallback((data: { token: string; user: User } | { data: { token: string; user: User } }) => {
+  const handleLoginSuccess = useCallback((data: { token: string; refreshToken: string; user: User } | { data: { token: string; refreshToken: string; user: User } }) => {
     const actualData = 'data' in data ? data.data : data
-    saveAuth({ state: 'authenticated', token: actualData.token, user: actualData.user })
+    saveAuth({ state: 'authenticated', token: actualData.token, refreshToken: actualData.refreshToken ?? null, user: actualData.user })
     setView('dashboard')
   }, [saveAuth])
 
@@ -172,7 +232,7 @@ function App() {
 
   return (
     <div className="app">
-      <Header view={view} setView={setView} auth={auth} onLogout={onLogout} />
+      <Header view={view} setView={setView} auth={auth} onLogout={onLogout} apiFetch={apiFetch} openServiceDetail={openServiceDetail} />
 
       <main className="main">
         {view === 'home' && auth.state === 'anonymous' && (
@@ -225,6 +285,15 @@ function App() {
           />
         )}
 
+        {view === 'professionals' && (
+          <ProfessionalsPage
+            apiFetch={apiFetch}
+            apiBaseUrl={API_BASE_URL}
+            setView={setView}
+            onBack={() => setView(auth.state === 'authenticated' ? 'dashboard' : 'home')}
+          />
+        )}
+
         {view === 'my-services' && auth.state === 'authenticated' && (
           <MyServicesPage
             myServices={myServices}
@@ -244,12 +313,13 @@ function App() {
         )}
 
         {view === 'proposals' && auth.state === 'authenticated' && (
-          <ProposalsPage auth={auth} apiFetch={apiFetch} />
+          <ProposalsPage auth={auth} apiFetch={apiFetch} openServiceDetail={openServiceDetail} />
         )}
 
-        {view === 'service-detail' && selectedService && (
+        {view === 'service-detail' && selectedServiceId && (
           <ServiceDetailPage
-            service={selectedService}
+            serviceId={selectedServiceId}
+            initialService={selectedService || null}
             auth={auth}
             apiFetch={apiFetch}
             setView={setView}

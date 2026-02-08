@@ -132,6 +132,112 @@
   flex-shrink: 0;
 }
 
+/* Notifications */
+.header-notif {
+  position: relative;
+}
+
+.header-notif-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-default);
+  background: var(--bg-surface-1);
+  color: var(--fg-primary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.header-notif-btn:hover {
+  background: var(--bg-surface-2);
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.header-notif-btn:active {
+  transform: translateY(0);
+}
+
+.header-notif-btn:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 2px;
+}
+
+.header-notif-icon {
+  font-size: var(--text-lg);
+  line-height: 1;
+}
+
+.header-notif-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--brand-primary);
+  color: var(--fg-on-brand);
+  font-size: 11px;
+  font-weight: var(--font-bold);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--bg-overlay);
+}
+
+.header-notif-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 12px);
+  width: min(420px, calc(100vw - 24px));
+  background: var(--bg-surface-1);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-4);
+}
+
+.header-notif-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-3);
+}
+
+.header-notif-title {
+  font-weight: var(--font-bold);
+  color: var(--fg-primary);
+}
+
+.header-notif-subtitle {
+  font-size: var(--text-xs);
+  color: var(--fg-secondary);
+  margin-top: 2px;
+}
+
+.header-notif-list {
+  max-height: 340px;
+  overflow: auto;
+}
+
+.header-notif-list .notifItem {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+}
+
+.header-notif-list .notifItem:hover {
+  border-color: var(--border-default);
+}
+
 /* Profile Button */
 .header-profile-btn {
   display: inline-flex;

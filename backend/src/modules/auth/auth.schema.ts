@@ -4,7 +4,9 @@ export const registerSchema = z.object({
   email: z.string().email('E-mail inválido'),
   password: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
   description: z.string().min(10, 'Descrição deve ter no mínimo 10 caracteres'),
-  avatarUrl: z.string().min(1, 'Foto é obrigatória'),
+  // Can be provided directly as a URL OR derived from an uploaded file (multipart).
+  // The controller enforces that at least one option is present.
+  avatarUrl: z.string().min(1, 'Foto é obrigatória').optional(),
   name: z.string().min(1).optional(),
   role: z.enum(['client', 'professional']).optional(),
 })

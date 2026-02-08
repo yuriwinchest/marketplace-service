@@ -7,8 +7,8 @@ import type { ProposalQuotaStatus } from './subscriptions.repository.js'
 export class SubscriptionsService {
   constructor(private repository: SubscriptionsRepository) {}
 
-  async getByProfessionalId(professionalId: string): Promise<SubscriptionEntity | null> {
-    return this.repository.findByProfessionalId(professionalId)
+  async getByProfessionalId(professionalId: string, opts?: { db?: import('@supabase/supabase-js').SupabaseClient }): Promise<SubscriptionEntity | null> {
+    return this.repository.findByProfessionalId(professionalId, opts?.db)
   }
 
   getPlans() {
@@ -44,12 +44,12 @@ export class SubscriptionsService {
     return updated
   }
 
-  async isActive(professionalId: string): Promise<boolean> {
-    return this.repository.isActive(professionalId)
+  async isActive(professionalId: string, opts?: { db?: import('@supabase/supabase-js').SupabaseClient }): Promise<boolean> {
+    return this.repository.isActive(opts?.db, professionalId)
   }
 
-  async getQuotaStatus(professionalId: string): Promise<ProposalQuotaStatus> {
-    return this.repository.getQuotaStatus(professionalId)
+  async getQuotaStatus(professionalId: string, opts?: { db?: import('@supabase/supabase-js').SupabaseClient }): Promise<ProposalQuotaStatus> {
+    return this.repository.getQuotaStatus(professionalId, opts?.db)
   }
 
   async consumeProposalQuota(professionalId: string) {

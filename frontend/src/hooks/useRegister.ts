@@ -13,6 +13,7 @@ export function useRegister({ apiBaseUrl, onRegisterSuccess }: UseRegisterProps)
     const [password, setPassword] = useState('')
     const [description, setDescription] = useState('')
     const [avatarUrl, setAvatarUrl] = useState('')
+    const [avatarFile, setAvatarFile] = useState<File | null>(null)
     const [role, setRole] = useState<UserRole>('client')
     const [error, setError] = useState<string | null>(null)
     const [loading, setLoading] = useState(false)
@@ -21,18 +22,38 @@ export function useRegister({ apiBaseUrl, onRegisterSuccess }: UseRegisterProps)
         setError(null)
         setLoading(true)
         try {
-            const res = await fetch(`${apiBaseUrl}/api/auth/register`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    name: name || undefined,
-                    email,
-                    password,
-                    description,
-                    avatarUrl,
-                    role,
-                }),
-            })
+            const url = `${apiBaseUrl}/api/auth/register`
+
+            const useMultipart = !!avatarFile
+            const res = useMultipart
+                ? await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Accept': 'application/json' },
+                    body: (() => {
+                        const fd = new FormData()
+                        if (name.trim()) fd.append('name', name.trim())
+                        fd.append('email', email)
+                        fd.append('password', password)
+                        fd.append('description', description)
+                        fd.append('role', role)
+                        if (avatarUrl.trim()) fd.append('avatarUrl', avatarUrl.trim())
+                        if (avatarFile) fd.append('avatar', avatarFile)
+                        return fd
+                    })(),
+                })
+                : await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: name || undefined,
+                        email,
+                        password,
+                        description,
+                        avatarUrl: avatarUrl.trim() || undefined,
+                        role,
+                    }),
+                })
+
             const data = await res.json()
             if (!res.ok) {
                 setError(data.error ?? 'Erro ao cadastrar')
@@ -47,9 +68,17 @@ export function useRegister({ apiBaseUrl, onRegisterSuccess }: UseRegisterProps)
     }
 
     return {
-        formState: { name, email, password, description, avatarUrl, role },
-        setters: { setName, setEmail, setPassword, setDescription, setAvatarUrl, setRole },
+        formState: { name, email, password, description, avatarUrl, avatarFile, role },
+        setters: { setName, setEmail, setPassword, setDescription, setAvatarUrl, setAvatarFile, setRole },
         ui: { error, loading },
         handleRegister
     }
+}
+
+// Dev-only: changes to hook order during Fast Refresh can crash the page.
+// Force a full reload when this module updates to keep a stable runtime.
+if (import.meta.hot) {
+    import.meta.hot.accept(() => {
+        import.meta.hot?.invalidate()
+    })
 }

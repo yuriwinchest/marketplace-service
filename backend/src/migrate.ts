@@ -1,9 +1,9 @@
-import dotenv from 'dotenv'
+import { loadEnv } from './config/loadEnv.js'
 import { Client } from 'pg'
 import { readdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
 
-dotenv.config()
+loadEnv()
 
 const resolveProjectRefFromUrl = (raw?: string) => {
   if (!raw) return undefined
@@ -86,4 +86,3 @@ main().catch((err) => {
   console.error(err)
   process.exitCode = 1
 })
-

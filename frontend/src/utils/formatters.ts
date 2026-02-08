@@ -35,6 +35,12 @@ export const urgencyClass = (u: string) => {
 }
 
 export const statusLabel = (s: string) => {
+    // Proposals
+    if (s === 'pending') return 'Pendente'
+    if (s === 'accepted') return 'Aceita'
+    if (s === 'rejected') return 'Rejeitada'
+
+    // Services / requests
     if (s === 'open') return 'Aberto'
     if (s === 'in_progress' || s === 'matched') return 'Em andamento'
     if (s === 'completed' || s === 'closed') return 'Concluido'
@@ -43,6 +49,12 @@ export const statusLabel = (s: string) => {
 }
 
 export const statusClass = (s: string) => {
+    // Proposals
+    if (s === 'pending') return 'badge-warning'
+    if (s === 'accepted') return 'badge-success'
+    if (s === 'rejected') return 'badge-danger'
+
+    // Services / requests
     if (s === 'open') return 'badge-primary'
     if (s === 'in_progress' || s === 'matched') return 'badge-warning'
     if (s === 'completed' || s === 'closed') return 'badge-success'

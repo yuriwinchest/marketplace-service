@@ -5,7 +5,7 @@ import type { CreateRatingInput } from './ratings.schema.js'
 export class RatingsService {
   constructor(private repository: RatingsRepository) { }
 
-  async create(fromUserId: string, input: CreateRatingInput): Promise<RatingEntity> {
+  async create(db: import('@supabase/supabase-js').SupabaseClient, fromUserId: string, input: CreateRatingInput): Promise<RatingEntity> {
     if (fromUserId === input.toUserId) {
       throw new Error('Você não pode avaliar a si mesmo')
     }
@@ -53,6 +53,7 @@ export class RatingsService {
 
     try {
       const payload = {
+        db,
         requestId: input.requestId,
         fromUserId,
         toUserId: input.toUserId,

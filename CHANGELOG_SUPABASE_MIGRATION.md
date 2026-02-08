@@ -43,7 +43,7 @@ Migração completa de todos os repositórios para usar a **API REST do Supabase
 
 ```env
 SUPABASE_URL=https://wkinsmogblmfobyldijc.supabase.co
-SUPABASE_ANON_KEY=sb_publishable_6F8aKlMu9FChTEFHgyButw_9Etr6ZcV
+SUPABASE_ANON_KEY=...
 ```
 
 ## Padrão de Migração

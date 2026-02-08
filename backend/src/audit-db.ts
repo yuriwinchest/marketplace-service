@@ -1,8 +1,8 @@
 
-import dotenv from 'dotenv'
+import { loadEnv } from './config/loadEnv.js'
 import { Client } from 'pg'
 
-dotenv.config()
+loadEnv()
 
 const getDbConfig = () => {
     const host = process.env.DB_HOST

@@ -14,8 +14,8 @@ Este arquivo resume as principais implementacoes feitas no projeto (frontend, ba
 - O sistema nao realiza repasses.
 - O pagamento e feito diretamente entre cliente e freelancer.
 - Cadastro obrigatorio com foto e descricao (registro gratuito).
-- Freelancer pode enviar ate 3 propostas gratis.
-- Apos o limite gratis, o freelancer escolhe um plano mensal para continuar enviando propostas:
+- Para enviar propostas, o freelancer precisa ter **assinatura ativa** e **creditos de proposta** no plano (quota mensal).
+- Planos mensais (limite de propostas por periodo):
 - R$ 9,99/mes: ate 20 propostas
 - R$ 29,99/mes: ate 50 propostas
 - R$ 59,99/mes: ate 100 propostas
@@ -132,4 +132,3 @@ SUPABASE_SERVICE_ROLE_KEY=... # obrigatorio em producao se RLS estiver ativo
 
 - `CHANGELOG_SUPABASE_MIGRATION.md`: detalhes da migracao de `pg` para API REST do Supabase.
 - `MELHORIAS_IMPLEMENTADAS.md`: documentacao do design system (tokens CSS e componentes).
-

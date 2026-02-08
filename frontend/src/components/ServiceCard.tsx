@@ -23,9 +23,11 @@ export function ServiceCard({ service, onClick }: ServiceCardProps) {
             }}
         >
             {isHighUrgency && (
-                <div className="service-card-highlight-badge">
-                    <span className="service-card-highlight-icon">⚡</span>
-                    <span>Destaque</span>
+                <div className="service-card-toprow" aria-label="Destaque">
+                    <div className="service-card-highlight-badge">
+                        <span className="service-card-highlight-icon">⚡</span>
+                        <span>Destaque</span>
+                    </div>
                 </div>
             )}
 

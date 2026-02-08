@@ -1,4 +1,5 @@
 import type { Request, Response, NextFunction } from 'express'
+import { config } from '../../config/unifiedConfig.js'
 
 interface RateLimitStore {
   [key: string]: number[]
@@ -56,8 +57,11 @@ export const rateLimitMiddleware = (
   windowMs: number,
 ) => {
   return (req: Request, res: Response, next: NextFunction): void => {
-    // Identificador: IP ou user ID
-    const identifier = (req as any).user?.id || req.ip || req.headers['x-forwarded-for'] || 'unknown'
+    // Identifier: authenticated userId when present, otherwise client IP.
+    // `trust proxy` must be enabled on the app for correct `req.ip` behind Nginx.
+    const userId = (req as any).user?.id as string | undefined
+    const ip = req.ip || 'unknown'
+    const identifier = userId ? `user:${userId}` : `ip:${ip}`
 
     const allowed = limiter.checkLimit(identifier, maxRequests, windowMs)
 
@@ -74,6 +78,7 @@ export const rateLimitMiddleware = (
 }
 
 // Middlewares pré-configurados
-export const generalRateLimit = rateLimitMiddleware(1000, 60000) // 1000 req/min (Relaxed for dev)
-export const strictRateLimit = rateLimitMiddleware(100, 60000) // 100 req/min (Relaxed for dev)
-export const authRateLimit = rateLimitMiddleware(100, 60000) // 100 req/min (Relaxed for dev)
+const isProd = (config.nodeEnv || '').toLowerCase() === 'production'
+export const generalRateLimit = rateLimitMiddleware(isProd ? 100 : 1000, 60000) // req/min
+export const strictRateLimit = rateLimitMiddleware(isProd ? 20 : 200, 60000) // req/min
+export const authRateLimit = rateLimitMiddleware(isProd ? 10 : 100, 60000) // req/min

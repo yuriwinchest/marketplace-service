@@ -1,4 +1,5 @@
-import { supabase } from '../../shared/database/supabaseClient.js'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import { supabaseAdmin } from '../../shared/database/supabaseClient.js'
 import type { CreateSubscriptionInput, UpdateSubscriptionStatusInput } from './subscriptions.schema.js'
 import {
   FREE_PROPOSAL_LIMIT,
@@ -51,8 +52,12 @@ const SUBSCRIPTION_SELECT =
   'id, professional_id, stripe_subscription_id, stripe_customer_id, status, current_period_start, current_period_end, cancel_at_period_end, plan_code, plan_name, monthly_price, proposal_limit, proposals_used_in_period, created_at, updated_at'
 
 export class SubscriptionsRepository {
-  async findByProfessionalId(professionalId: string): Promise<SubscriptionEntity | null> {
-    const { data, error } = await supabase
+  private client(db?: SupabaseClient): SupabaseClient {
+    return db ?? supabaseAdmin
+  }
+
+  async findByProfessionalId(professionalId: string, db?: SupabaseClient): Promise<SubscriptionEntity | null> {
+    const { data, error } = await this.client(db)
       .from('subscriptions')
       .select(SUBSCRIPTION_SELECT)
       .eq('professional_id', professionalId)
@@ -66,7 +71,7 @@ export class SubscriptionsRepository {
   }
 
   async findByStripeSubscriptionId(stripeSubscriptionId: string): Promise<SubscriptionEntity | null> {
-    const { data, error } = await supabase
+    const { data, error } = await this.client()
       .from('subscriptions')
       .select(SUBSCRIPTION_SELECT)
       .eq('stripe_subscription_id', stripeSubscriptionId)
@@ -86,7 +91,7 @@ export class SubscriptionsRepository {
     const currentPeriodEndDate = new Date(now)
     currentPeriodEndDate.setMonth(currentPeriodEndDate.getMonth() + 1)
 
-    const { data, error } = await supabase
+    const { data, error } = await this.client()
       .from('subscriptions')
       .upsert(
         {
@@ -130,7 +135,7 @@ export class SubscriptionsRepository {
       updateData.cancel_at_period_end = input.cancelAtPeriodEnd
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await this.client()
       .from('subscriptions')
       .update(updateData)
       .eq('id', subscriptionId)
@@ -145,7 +150,7 @@ export class SubscriptionsRepository {
   }
 
   async updateProfessionalProfileStatus(professionalId: string, status: string): Promise<void> {
-    const { error } = await supabase
+    const { error } = await this.client()
       .from('professional_profiles')
       .update({ subscription_status: status })
       .eq('id', professionalId)
@@ -155,14 +160,14 @@ export class SubscriptionsRepository {
     }
   }
 
-  async isActive(professionalId: string): Promise<boolean> {
-    const subscription = await this.findByProfessionalId(professionalId)
+  async isActive(db: SupabaseClient | undefined, professionalId: string): Promise<boolean> {
+    const subscription = await this.findByProfessionalId(professionalId, db)
     return this.isSubscriptionActive(subscription)
   }
 
-  async getQuotaStatus(professionalId: string): Promise<ProposalQuotaStatus> {
-    const profile = await this.getProfessionalUsage(professionalId)
-    const subscription = await this.findByProfessionalId(professionalId)
+  async getQuotaStatus(professionalId: string, db?: SupabaseClient): Promise<ProposalQuotaStatus> {
+    const profile = await this.getProfessionalUsage(professionalId, db)
+    const subscription = await this.findByProfessionalId(professionalId, db)
     const freeUsed = profile?.free_proposals_used ?? 0
     const freeRemaining = Math.max(0, FREE_PROPOSAL_LIMIT - freeUsed)
 
@@ -197,7 +202,7 @@ export class SubscriptionsRepository {
     }
 
     const freeUsed = profile.free_proposals_used ?? 0
-    if (freeUsed < FREE_PROPOSAL_LIMIT) {
+    if (FREE_PROPOSAL_LIMIT > 0 && freeUsed < FREE_PROPOSAL_LIMIT) {
       const updated = await this.incrementFreeProposalsUsage(profile.id, freeUsed)
 
       return {
@@ -213,7 +218,7 @@ export class SubscriptionsRepository {
     const subscription = await this.findByProfessionalId(professionalId)
     if (!subscription || !this.isSubscriptionActive(subscription)) {
       throw new Error(
-        'Você atingiu o limite gratuito de 3 propostas. Contrate um plano para continuar enviando propostas.',
+        'Você precisa de um plano ativo para enviar propostas.',
       )
     }
 
@@ -232,16 +237,16 @@ export class SubscriptionsRepository {
 
     return {
       source: 'subscription',
-      freeProposalsUsed: FREE_PROPOSAL_LIMIT,
-      freeProposalsRemaining: 0,
+      freeProposalsUsed: Math.min(freeUsed, FREE_PROPOSAL_LIMIT),
+      freeProposalsRemaining: Math.max(0, FREE_PROPOSAL_LIMIT - freeUsed),
       subscriptionProposalsUsed: updatedSubscriptionUsage,
       subscriptionProposalsRemaining: Math.max(0, planLimit - updatedSubscriptionUsage),
       planCode: subscription.plan_code,
     }
   }
 
-  private async getProfessionalUsage(professionalId: string): Promise<ProfessionalUsageEntity | null> {
-    const { data, error } = await supabase
+  private async getProfessionalUsage(professionalId: string, db?: SupabaseClient): Promise<ProfessionalUsageEntity | null> {
+    const { data, error } = await this.client(db)
       .from('professional_profiles')
       .select('id, free_proposals_used')
       .eq('id', professionalId)
@@ -257,7 +262,7 @@ export class SubscriptionsRepository {
   private async incrementFreeProposalsUsage(professionalId: string, expectedCurrentValue: number): Promise<number> {
     const nextValue = expectedCurrentValue + 1
 
-    const { data, error } = await supabase
+    const { data, error } = await this.client()
       .from('professional_profiles')
       .update({ free_proposals_used: nextValue })
       .eq('id', professionalId)
@@ -275,7 +280,7 @@ export class SubscriptionsRepository {
   private async incrementSubscriptionUsage(subscriptionId: string, expectedCurrentValue: number): Promise<number> {
     const nextValue = expectedCurrentValue + 1
 
-    const { data, error } = await supabase
+    const { data, error } = await this.client()
       .from('subscriptions')
       .update({
         proposals_used_in_period: nextValue,

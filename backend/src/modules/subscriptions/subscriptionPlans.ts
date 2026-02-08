@@ -11,7 +11,8 @@ export interface SubscriptionPlan {
   proposalLimit: number
 }
 
-export const FREE_PROPOSAL_LIMIT = 3
+// Regra atual: para enviar propostas, precisa de assinatura ativa (sem propostas gratis).
+export const FREE_PROPOSAL_LIMIT = 0
 export const URGENT_PROMOTION_PRICE = 5.99
 export const DIRECT_CONTACT_PRICE = 2.99
 
@@ -48,4 +49,3 @@ export const listPlans = (): SubscriptionPlan[] =>
 export const getPlanByCode = (
   code: SubscriptionPlanCode,
 ): SubscriptionPlan => SUBSCRIPTION_PLANS[code]
-

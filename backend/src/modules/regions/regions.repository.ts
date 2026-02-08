@@ -1,4 +1,4 @@
-import { supabase } from '../../shared/database/supabaseClient.js'
+import { supabaseAnon } from '../../shared/database/supabaseClient.js'
 
 export interface RegionEntity {
   id: string
@@ -7,7 +7,7 @@ export interface RegionEntity {
 
 export class RegionsRepository {
   async findAll(): Promise<RegionEntity[]> {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAnon
       .from('regions')
       .select('id, name')
       .order('name', { ascending: true })

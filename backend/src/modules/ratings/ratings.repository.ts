@@ -1,4 +1,5 @@
-import { supabase } from '../../shared/database/supabaseClient.js'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import { supabaseAdmin } from '../../shared/database/supabaseClient.js'
 
 export interface RatingEntity {
   id: string
@@ -22,7 +23,7 @@ export interface RatingWithAuthor extends RatingEntity {
 
 export class RatingsRepository {
   async getRequestContext(requestId: string): Promise<RequestContextEntity | null> {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('service_requests')
       .select('id, client_id, status')
       .eq('id', requestId)
@@ -36,7 +37,7 @@ export class RatingsRepository {
   }
 
   async getProfessionalIdByUserId(userId: string): Promise<string | null> {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('professional_profiles')
       .select('id')
       .eq('user_id', userId)
@@ -50,7 +51,7 @@ export class RatingsRepository {
   }
 
   async hasAcceptedProposal(requestId: string, professionalId: string): Promise<boolean> {
-    const { count, error } = await supabase
+    const { count, error } = await supabaseAdmin
       .from('proposals')
       .select('*', { count: 'exact', head: true })
       .eq('service_request_id', requestId)
@@ -66,13 +67,14 @@ export class RatingsRepository {
   }
 
   async create(input: {
+    db: SupabaseClient
     requestId: string
     fromUserId: string
     toUserId: string
     score: number
     comment?: string
   }): Promise<RatingEntity> {
-    const { data, error } = await supabase
+    const { data, error } = await input.db
       .from('ratings')
       .insert({
         request_id: input.requestId,
@@ -96,7 +98,7 @@ export class RatingsRepository {
     pagination: { page: number; limit: number },
   ): Promise<RatingWithAuthor[]> {
     const offset = (pagination.page - 1) * pagination.limit
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('ratings')
       .select(`
         id,
@@ -130,7 +132,7 @@ export class RatingsRepository {
   }
 
   async getSummaryByUserId(toUserId: string): Promise<{ average: number; total: number }> {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('ratings')
       .select('score')
       .eq('to_user_id', toUserId)

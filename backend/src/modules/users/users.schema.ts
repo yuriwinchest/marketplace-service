@@ -15,3 +15,13 @@ export const updateProfileSchema = z.object({
 })
 
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>
+
+export const listProfessionalsSchema = z.object({
+  categoryId: z.string().uuid().optional(),
+  city: z.string().min(1).optional(),
+  uf: z.string().length(2).optional(),
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().positive().max(50).default(20),
+})
+
+export type ListProfessionalsQuery = z.infer<typeof listProfessionalsSchema>

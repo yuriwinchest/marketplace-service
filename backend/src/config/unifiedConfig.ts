@@ -1,6 +1,6 @@
-import dotenv from 'dotenv'
+import { loadEnv } from './loadEnv.js'
 
-dotenv.config()
+loadEnv()
 
 export const config = {
   port: Number(process.env.PORT ?? '5000'),

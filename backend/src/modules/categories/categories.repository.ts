@@ -1,4 +1,4 @@
-import { supabase } from '../../shared/database/supabaseClient.js'
+import { supabaseAnon } from '../../shared/database/supabaseClient.js'
 
 export interface CategoryEntity {
   id: string
@@ -8,7 +8,7 @@ export interface CategoryEntity {
 export class CategoriesRepository {
   async findAll(): Promise<CategoryEntity[]> {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await supabaseAnon
         .from('categories')
         .select('id, name')
         .order('name', { ascending: true })

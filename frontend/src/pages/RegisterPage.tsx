@@ -1,4 +1,4 @@
-
+import { useEffect, useMemo } from 'react'
 import type { View } from '../types'
 import { RoleSelector } from '../components/RoleSelector'
 import { useRegister } from '../hooks/useRegister'
@@ -11,15 +11,28 @@ interface RegisterPageProps {
 
 export function RegisterPage({ setView, onRegisterSuccess, apiBaseUrl }: RegisterPageProps) {
     const { formState, setters, ui, handleRegister } = useRegister({ apiBaseUrl, onRegisterSuccess })
-    const { name, email, password, description, avatarUrl, role } = formState
-    const { setName, setEmail, setPassword, setDescription, setAvatarUrl, setRole } = setters
+    const { name, email, password, description, avatarUrl, avatarFile, role } = formState
+    const { setName, setEmail, setPassword, setDescription, setAvatarUrl, setAvatarFile, setRole } = setters
     const { error, loading } = ui
 
     const canSubmit =
         !!email &&
         !!password &&
         description.trim().length >= 10 &&
-        avatarUrl.trim().length > 0
+        (avatarUrl.trim().length > 0 || !!avatarFile)
+
+    const filePreviewUrl = useMemo(() => {
+        if (!avatarFile) return ''
+        return URL.createObjectURL(avatarFile)
+    }, [avatarFile])
+
+    useEffect(() => {
+        return () => {
+            if (filePreviewUrl) URL.revokeObjectURL(filePreviewUrl)
+        }
+    }, [filePreviewUrl])
+
+    const previewUrl = filePreviewUrl || (avatarUrl.trim() ? avatarUrl.trim() : '')
 
     return (
         <div className="authPage">
@@ -48,27 +61,47 @@ export function RegisterPage({ setView, onRegisterSuccess, apiBaseUrl }: Registe
                                 />
                             </div>
                             <div className="formGroup">
-                                <label>Foto (link)</label>
+                                <label>Foto</label>
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={(e) => {
+                                        const file = e.target.files?.[0] || null
+                                        setAvatarFile(file)
+                                    }}
+                                />
+                                <div style={{ marginTop: '0.6rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                                    Opcional: se preferir, cole um link abaixo. Se anexar arquivo, ele sera enviado para o servidor.
+                                </div>
                                 <input
                                     type="url"
-                                    placeholder="https://... (ou cole o link da sua foto)"
+                                    placeholder="https://... (opcional)"
                                     value={avatarUrl}
                                     onChange={e => setAvatarUrl(e.target.value)}
+                                    style={{ marginTop: '0.6rem' }}
                                 />
-                                {avatarUrl.trim() && (
-                                    <div style={{ marginTop: '0.75rem' }}>
+                                {!!previewUrl && (
+                                    <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                                         <img
-                                            src={avatarUrl}
+                                            src={previewUrl}
                                             alt="Prévia da foto"
                                             style={{ width: 72, height: 72, borderRadius: 12, objectFit: 'cover' }}
                                             onError={(e) => {
-                                                // evita loop infinito caso a URL seja inválida
                                                 ; (e.currentTarget as HTMLImageElement).style.display = 'none'
                                             }}
                                             onLoad={(e) => {
                                                 ; (e.currentTarget as HTMLImageElement).style.display = 'block'
                                             }}
                                         />
+                                        {avatarFile && (
+                                            <button
+                                                className="btnSecondary btnSm"
+                                                type="button"
+                                                onClick={() => setAvatarFile(null)}
+                                            >
+                                                Remover anexo
+                                            </button>
+                                        )}
                                     </div>
                                 )}
                             </div>
