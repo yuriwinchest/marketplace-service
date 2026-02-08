@@ -31,7 +31,7 @@ export class AuthController extends BaseController {
         ...parsed.data,
         avatarUrl,
       })
-      return this.created(res, { userId: result.id })
+      return this.created(res, { userId: result.id, pendingConfirmation: result.pendingConfirmation ?? false })
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro ao cadastrar'
       if (message === 'E-mail já cadastrado') {

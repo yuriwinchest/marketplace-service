@@ -2,6 +2,7 @@ import type { RegisterInput, LoginInput } from './auth.schema.js'
 import type { UserRole } from '../../shared/types/auth.js'
 import { AuthRepository } from './auth.repository.js'
 import { supabaseAnon } from '../../shared/database/supabaseClient.js'
+import { createSupabaseRlsClient } from '../../shared/database/supabaseRlsClient.js'
 
 export interface AuthResult {
   token: string
@@ -20,7 +21,7 @@ export interface AuthResult {
 export class AuthService {
   constructor(private repository: AuthRepository) {}
 
-  async register(input: RegisterInput): Promise<{ id: string }> {
+  async register(input: RegisterInput): Promise<{ id: string; pendingConfirmation?: boolean }> {
     const avatarUrl = input.avatarUrl
     if (!avatarUrl) throw new Error('Foto é obrigatória')
 
@@ -47,28 +48,22 @@ export class AuthService {
     if (!authUserId) {
       // This can happen when email confirmation is required.
       // We still consider the signup successful, but can't create identity mapping without the auth user id.
-      throw new Error('Cadastro criado. Confirme seu e-mail e faça login.')
+      return { id: '', pendingConfirmation: true }
     }
 
-    // 2) Ensure internal user exists (plan B: separate IDs)
-    const existingInternal = await this.repository.findInternalByEmail(input.email)
-    const role = (existingInternal?.role ?? (input.role ?? 'client')) as UserRole
-    const internalUserId =
-      existingInternal?.id ??
-      (await this.repository.createInternalUser({
-        email: input.email,
-        name: input.name ?? null,
-        description: input.description,
-        avatarUrl,
-        role,
-      }))
-
-    // 3) Link auth user -> internal user
-    await this.repository.upsertIdentityMapping(authUserId, internalUserId)
-
-    if (role === 'professional') {
-      await this.repository.ensureProfessionalProfile(internalUserId)
+    const accessToken = signUpData.session?.access_token
+    if (!accessToken) {
+      // Signup ok but no session (email confirmation). Bootstrap will happen on first login.
+      return { id: authUserId, pendingConfirmation: true }
     }
+
+    const db = createSupabaseRlsClient(accessToken)
+    const internalUserId = await this.repository.bootstrapInternalUser(db, {
+      name: input.name ?? null,
+      description: input.description ?? null,
+      avatarUrl,
+      role: (input.role ?? 'client') as UserRole,
+    })
 
     return { id: internalUserId }
   }
@@ -83,29 +78,11 @@ export class AuthService {
       throw new Error('Credenciais inválidas')
     }
 
-    const authUserId = data.user.id
+    const role = (data.user.user_metadata?.role ?? 'client') as UserRole
+    const db = createSupabaseRlsClient(data.session.access_token)
+    const internalUserId = await this.repository.bootstrapInternalUser(db, { role })
 
-    // Find mapping; if missing, attempt to link by email (useful for gradual migration).
-    let internalUserId = await this.repository.findInternalUserIdByAuthUserId(authUserId)
-    if (!internalUserId) {
-      const internal = await this.repository.findInternalByEmail(input.email)
-      if (!internal) {
-        // Last resort: create a minimal internal user and link it.
-        internalUserId = await this.repository.createInternalUser({
-          email: input.email,
-          name: null,
-          description: '',
-          avatarUrl: null,
-          role: 'client',
-        })
-      } else {
-        internalUserId = internal.id
-      }
-
-      await this.repository.upsertIdentityMapping(authUserId, internalUserId)
-    }
-
-    const internalUser = await this.repository.findInternalById(internalUserId)
+    const internalUser = await this.repository.findInternalById(db, internalUserId)
     if (!internalUser) throw new Error('Usuário não encontrado')
 
     return {

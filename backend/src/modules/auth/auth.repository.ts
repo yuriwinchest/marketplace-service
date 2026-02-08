@@ -1,4 +1,4 @@
-import { supabaseAdmin } from '../../shared/database/supabaseClient.js'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import type { UserRole } from '../../shared/types/auth.js'
 
 export interface InternalUserEntity {
@@ -12,99 +12,36 @@ export interface InternalUserEntity {
 }
 
 export class AuthRepository {
-  async findInternalByEmail(email: string): Promise<InternalUserEntity | null> {
-    const { data, error } = await supabaseAdmin
-      .from('users')
-      .select('id, email, name, description, role, avatar_url, created_at')
-      .eq('email', email.toLowerCase())
-      .single()
+  async bootstrapInternalUser(
+    db: SupabaseClient,
+    input: { name?: string | null; description?: string | null; avatarUrl?: string | null; role?: UserRole },
+  ): Promise<string> {
+    const { data, error } = await db.rpc('bootstrap_user', {
+      p_name: input.name ?? null,
+      p_description: input.description ?? null,
+      p_avatar_url: input.avatarUrl ?? null,
+      p_role: input.role ?? 'client',
+    })
 
-    if (error && error.code !== 'PGRST116') {
-      console.warn('Erro ao buscar usuário:', error.message)
+    if (error || !data) {
+      throw new Error(error?.message || 'Erro ao inicializar usuário')
     }
 
-    return (data as InternalUserEntity) || null
+    return String(data)
   }
 
-  async findInternalById(userId: string): Promise<InternalUserEntity | null> {
-    const { data, error } = await supabaseAdmin
+  async findInternalById(db: SupabaseClient, userId: string): Promise<InternalUserEntity | null> {
+    const { data, error } = await db
       .from('users')
       .select('id, email, name, description, role, avatar_url, created_at')
       .eq('id', userId)
-      .single()
+      .maybeSingle()
 
-    if (error && error.code !== 'PGRST116') {
+    if (error) {
       console.warn('Erro ao buscar usuário:', error.message)
     }
 
     return (data as InternalUserEntity) || null
-  }
-
-  async createInternalUser(input: {
-    email: string
-    name: string | null
-    description: string
-    avatarUrl: string | null
-    role: UserRole
-  }): Promise<string> {
-    const payload: Record<string, unknown> = {
-      email: input.email.toLowerCase(),
-      name: input.name ?? null,
-      description: input.description || null,
-      role: input.role,
-    }
-
-    if (input.avatarUrl !== undefined) payload.avatar_url = input.avatarUrl
-
-    const { data, error } = await supabaseAdmin
-      .from('users')
-      .insert(payload)
-      .select('id')
-      .single()
-
-    if (error || !data) {
-      throw new Error(error?.message || 'Erro ao criar usuário')
-    }
-
-    return String((data as any).id)
-  }
-
-  async ensureProfessionalProfile(userId: string): Promise<void> {
-    const { error } = await supabaseAdmin
-      .from('professional_profiles')
-      .upsert({ user_id: userId }, { onConflict: 'user_id' })
-
-    if (error) {
-      console.warn('Erro ao criar perfil profissional:', error.message)
-    }
-  }
-
-  async upsertIdentityMapping(authUserId: string, internalUserId: string): Promise<void> {
-    const { error } = await supabaseAdmin
-      .from('user_identities')
-      .upsert(
-        { auth_user_id: authUserId, user_id: internalUserId },
-        { onConflict: 'auth_user_id' },
-      )
-
-    if (error) {
-      console.warn('Erro ao vincular identidade:', error.message)
-      throw new Error('Erro ao vincular identidade')
-    }
-  }
-
-  async findInternalUserIdByAuthUserId(authUserId: string): Promise<string | null> {
-    const { data, error } = await supabaseAdmin
-      .from('user_identities')
-      .select('user_id')
-      .eq('auth_user_id', authUserId)
-      .single()
-
-    if (error && error.code !== 'PGRST116') {
-      console.warn('Erro ao buscar identidade:', error.message)
-    }
-
-    return data?.user_id || null
   }
 }
 
