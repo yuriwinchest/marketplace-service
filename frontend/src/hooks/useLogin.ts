@@ -25,7 +25,7 @@ export function useLogin({ apiBaseUrl, onLoginSuccess }: UseLoginProps) {
             })
             const data = await res.json()
             if (!res.ok) {
-                setError(data.error ?? 'E-mail ou senha invalidos')
+                setError(data.error ?? 'E-mail ou senha inválidos')
                 return
             }
             onLoginSuccess(data)
