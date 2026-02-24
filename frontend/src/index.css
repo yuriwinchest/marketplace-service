@@ -177,29 +177,7 @@ h6 {
   color: var(--fg-primary);
 }
 
-h1 {
-  font-size: var(--text-4xl);
-}
-
-h2 {
-  font-size: var(--text-3xl);
-}
-
-h3 {
-  font-size: var(--text-2xl);
-}
-
-h4 {
-  font-size: var(--text-xl);
-}
-
-h5 {
-  font-size: var(--text-lg);
-}
-
-h6 {
-  font-size: var(--text-base);
-}
+/* font-size dos headings controlada pelo Tailwind (text-xl, text-2xl, etc.) */
 
 p {
   line-height: var(--leading-relaxed);
