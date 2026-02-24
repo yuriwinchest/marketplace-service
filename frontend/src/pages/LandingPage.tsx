@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useCategories } from '../hooks/useCategories'
 import { categoryIcons } from '../data/categoryIcons'
@@ -11,8 +11,6 @@ export function LandingPage() {
 
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
-  const videoRef1 = useRef<HTMLVideoElement>(null)
-  const videoRef2 = useRef<HTMLVideoElement>(null)
 
   const filtered = useMemo(() => {
     const t = search.trim().toLowerCase()
@@ -26,330 +24,293 @@ export function LandingPage() {
   useEffect(() => { setPage(1) }, [search])
 
   return (
-    <div style={{ backgroundColor: '#071a0f', minHeight: '100vh', color: '#fff', overflowX: 'hidden' }}>
+    <div className="min-h-screen bg-[#021a0f] text-white selection:bg-[#10b981]/30 selection:text-white">
 
-      {/* ═══════════════════════════════════
-          HERO
-      ═══════════════════════════════════ */}
-      <div style={{ padding: '24px 16px 32px' }}>
-        <div style={{ maxWidth: 960, margin: '0 auto' }}>
-          <div style={{
-            backgroundColor: '#0d2518',
-            borderRadius: 24,
-            border: '1px solid rgba(255,255,255,0.06)',
-            overflow: 'hidden',
-            display: 'flex',
-            flexDirection: 'row',
-            minHeight: 300,
-            position: 'relative',
-          }}>
-            {/* Glow */}
-            <div style={{
-              position: 'absolute', top: -60, right: -60,
-              width: 300, height: 300,
-              background: 'radial-gradient(circle, rgba(16,185,129,0.12) 0%, transparent 70%)',
-              pointerEvents: 'none',
-            }} />
-
-            {/* Left text */}
-            <div style={{ flex: 1, padding: '40px 40px 40px 48px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 16, position: 'relative', zIndex: 1 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#10b981', display: 'inline-block' }} />
-                <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(16,185,129,0.8)' }}>
-                  Marketplace de Serviços
-                </span>
-              </div>
-
-              <div>
-                <div style={{ fontSize: 32, fontWeight: 900, lineHeight: 1.2, color: '#fff', marginBottom: 4 }}>
-                  Contrate com clareza.
-                </div>
-                <div style={{ fontSize: 32, fontWeight: 900, lineHeight: 1.2, color: '#10b981' }}>
-                  Feche negócio sem enrolação.
-                </div>
-              </div>
-
-              <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.55)', lineHeight: 1.6, maxWidth: 340, margin: 0 }}>
-                Publique sua demanda gratuitamente e receba propostas de freelancers qualificadas.
-              </p>
-
-              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.35)', margin: 0 }}>
-                Pague com segurança{' '}
-                <span style={{ margin: '0 6px', color: 'rgba(255,255,255,0.2)' }}>–</span>
-                <button
-                  onClick={() => navigate('/servicos-publicos')}
-                  style={{ background: 'none', border: 'none', color: '#10b981', fontWeight: 700, cursor: 'pointer', fontSize: 13, padding: 0 }}
-                >
-                  Ver Oportunidades
-                </button>
-              </p>
-
-              <div style={{ marginTop: 4 }}>
-                <button
-                  onClick={() => navigate('/cadastrar')}
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 8,
-                    backgroundColor: '#10b981', color: '#021a0f',
-                    border: 'none', borderRadius: 12,
-                    padding: '12px 24px', fontSize: 14, fontWeight: 900,
-                    cursor: 'pointer', boxShadow: '0 8px 24px rgba(16,185,129,0.25)',
-                  }}
-                >
-                  Publicar Demanda <span style={{ fontSize: 16 }}>›</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Right image */}
-            <div style={{ width: 380, flexShrink: 0, position: 'relative', display: 'flex' }} className="hidden lg:flex">
-              <img
-                src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?q=80&w=800&auto=format&fit=crop"
-                alt=""
-                style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center', opacity: 0.45, mixBlendMode: 'luminosity' }}
-              />
-              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, #0d2518 0%, transparent 40%, #0d2518 100%)' }} />
-              {/* Badge top */}
-              <div style={{
-                position: 'absolute', top: 24, left: 24,
-                backgroundColor: 'rgba(2,26,15,0.85)', border: '1px solid rgba(255,255,255,0.1)',
-                borderRadius: 12, padding: '6px 14px', backdropFilter: 'blur(12px)',
-              }}>
-                <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.2em', textTransform: 'uppercase', color: '#10b981' }}>Atendimento Rápido</span>
-              </div>
-              {/* Badge bottom */}
-              <div style={{
-                position: 'absolute', bottom: 24, right: 24,
-                backgroundColor: '#10b981', color: '#021a0f',
-                borderRadius: 999, padding: '6px 16px',
-                fontSize: 10, fontWeight: 900, letterSpacing: '0.1em',
-                boxShadow: '0 8px 20px rgba(16,185,129,0.3)',
-              }}>
-                ✅ Negócio Fechado
-              </div>
-            </div>
-          </div>
-        </div>
+      {/* ── BACKGROUND ORCHESTRATION ──────────────────────────── */}
+      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-[#10b981]/10 blur-[120px] rounded-full animate-[glow-pulse_8s_infinite]" />
+        <div className="absolute bottom-[20%] right-[-10%] w-[35%] h-[50%] bg-[#10b981]/5 blur-[100px] rounded-full animate-[glow-pulse_12s_infinite_reverse]" />
+        <div className="absolute top-[40%] left-[30%] w-[20%] h-[20%] bg-[#10b981]/5 blur-[80px] rounded-full opacity-50" />
       </div>
 
-      {/* ═══════════════════════════════════
-          CATEGORIES + SIDEBAR
-      ═══════════════════════════════════ */}
-      <div style={{ padding: '0 16px 48px' }}>
-        <div style={{ maxWidth: 960, margin: '0 auto', display: 'flex', gap: 24, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+      <div className="relative z-10 font-sans">
 
-          {/* LEFT: Categories */}
-          <div style={{ flex: '1 1 540px', minWidth: 0 }}>
-            <h2 style={{ fontSize: 24, fontWeight: 900, color: '#fff', margin: '0 0 6px' }}>
-              Encontre o Profissional Certo
-            </h2>
-            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', margin: '0 0 20px' }}>
-              Busque e encontre freelancers para qualquer tipo de serviço.
-            </p>
+        {/* ══════════════════════════════════════════════════
+            HERO SECTION: REDEFINED DENSITY
+        ══════════════════════════════════════════════════ */}
+        <section className="px-4 py-8 md:py-12">
+          <div className="max-w-6xl mx-auto">
+            <div className="glass-panel rounded-[40px] overflow-hidden grid lg:grid-cols-[1.1fr_0.9fr] border-[#34d399]/20 shadow-2xl animate-reveal-in">
 
-            {/* Search */}
-            <div style={{ position: 'relative', marginBottom: 20 }}>
-              <svg style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)', pointerEvents: 'none' }}
-                xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
-              </svg>
-              <input
-                type="text"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="O que você precisa?"
-                style={{
-                  width: '100%', height: 44, boxSizing: 'border-box',
-                  backgroundColor: 'rgba(13,37,24,0.8)', border: '1px solid rgba(255,255,255,0.1)',
-                  borderRadius: 999, paddingLeft: 40, paddingRight: 20,
-                  fontSize: 14, color: '#fff', outline: 'none',
-                }}
-              />
-            </div>
+              {/* Left Content */}
+              <div className="p-8 md:p-14 md:pr-4 flex flex-col justify-center gap-6">
+                <div className="flex items-center gap-3 stagger-1 opacity-0 animate-[reveal-up_0.8s_forwards]">
+                  <span className="w-2 h-2 rounded-full bg-[#10b981] shadow-[0_0_10px_#10b981]" />
+                  <span className="text-[11px] font-black uppercase tracking-[0.3em] font-display text-[#10b981]/90">
+                    Marketplace de Serviços Elite
+                  </span>
+                </div>
 
-            {/* Grid */}
-            {visible.length > 0 ? (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-                {visible.map(cat => (
+                <div className="space-y-2 stagger-2 opacity-0 animate-[reveal-up_0.8s_0.1s_forwards]">
+                  <h1 className="text-4xl md:text-5xl lg:text-6xl font-black font-display leading-[1.1] tracking-tight">
+                    Contrate com <span className="text-[#10b981] drop-shadow-[0_0_15px_rgba(16,185,129,0.3)]">clareza.</span>
+                  </h1>
+                  <h1 className="text-3xl md:text-4xl lg:text-5xl font-black font-display leading-[1.1] text-emerald-100/40">
+                    Sem enrolação.
+                  </h1>
+                </div>
+
+                <p className="text-base text-emerald-100/60 leading-relaxed max-w-md stagger-3 opacity-0 animate-[reveal-up_0.8s_0.2s_forwards]">
+                  Publique sua demanda gratuitamente e receba propostas diretas
+                  de talentos verificados. Negocie com agilidade e pague com segurança.
+                </p>
+
+                <div className="flex flex-wrap items-center gap-4 stagger-4 opacity-0 animate-[reveal-up_0.8s_0.3s_forwards]">
                   <button
-                    key={cat.id}
-                    onClick={() => navigate('/servicos-publicos', { state: { categoryId: cat.id, fixedCategory: true } })}
-                    style={{
-                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
-                      padding: '16px 8px', backgroundColor: '#0d2518',
-                      border: '1px solid rgba(255,255,255,0.06)', borderRadius: 16,
-                      cursor: 'pointer', transition: 'all 0.2s',
-                    }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(16,185,129,0.4)' }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,0.06)' }}
+                    onClick={() => navigate('/cadastrar')}
+                    className="inline-flex items-center gap-3 bg-[#10b981] hover:bg-[#059669] text-[#021a0f] px-8 py-4 rounded-2xl text-base font-black transition-all hover:scale-[1.02] active:scale-95 shadow-[0_15px_30px_-10px_rgba(16,185,129,0.4)]"
                   >
-                    <div style={{
-                      width: 48, height: 48, borderRadius: 12,
-                      backgroundColor: 'rgba(6,67,40,0.6)', border: '1px solid rgba(255,255,255,0.06)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 22,
-                    }}>
-                      {categoryIcons[cat.name] || '🔧'}
-                    </div>
-                    <span style={{
-                      fontSize: 9, fontWeight: 900, textTransform: 'uppercase',
-                      letterSpacing: '0.1em', color: 'rgba(255,255,255,0.45)',
-                      textAlign: 'center', lineHeight: 1.3,
-                    }}>
-                      {cat.name}
-                    </span>
+                    Publicar Demanda <span className="text-xl">›</span>
                   </button>
-                ))}
-              </div>
-            ) : (
-              <div style={{ textAlign: 'center', padding: '40px 0', color: 'rgba(255,255,255,0.3)', fontSize: 14 }}>
-                Nenhuma categoria encontrada
-              </div>
-            )}
-
-            {/* Footer da seção */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, marginTop: 20 }}>
-              {totalPages > 1 && (
-                <>
                   <button
-                    disabled={cur === 1}
-                    onClick={() => setPage(p => Math.max(1, p - 1))}
-                    style={{
-                      width: 32, height: 32, borderRadius: '50%',
-                      border: '1px solid rgba(255,255,255,0.12)', backgroundColor: 'transparent',
-                      color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 14,
-                      opacity: cur === 1 ? 0.3 : 1,
-                    }}
-                  >←</button>
-                  <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', fontWeight: 700 }}>{cur}/{totalPages}</span>
-                  <button
-                    disabled={cur === totalPages}
-                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                    style={{
-                      width: 32, height: 32, borderRadius: '50%',
-                      border: '1px solid rgba(255,255,255,0.12)', backgroundColor: 'transparent',
-                      color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 14,
-                      opacity: cur === totalPages ? 0.3 : 1,
-                    }}
-                  >→</button>
-                </>
-              )}
-              <button
-                onClick={() => navigate('/servicos-publicos')}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 8,
-                  padding: '10px 24px', borderRadius: 12,
-                  border: '1px solid rgba(255,255,255,0.12)', backgroundColor: 'transparent',
-                  color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: 700, cursor: 'pointer',
-                }}
-              >
-                Ver Todas as Categorias <span style={{ color: '#10b981' }}>›</span>
-              </button>
-            </div>
-          </div>
-
-          {/* RIGHT: Como Funciona */}
-          <div style={{ width: 240, flexShrink: 0 }}>
-            <div style={{
-              backgroundColor: 'rgba(13,37,24,0.6)', border: '1px solid rgba(255,255,255,0.08)',
-              borderRadius: 20, padding: '24px 20px',
-            }}>
-              <h3 style={{ fontSize: 16, fontWeight: 900, color: '#fff', margin: '0 0 20px' }}>Como Funciona</h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                {[
-                  'Publique sua demanda.',
-                  'Receba propostas e negocie.',
-                  'Contrate com segurança.',
-                  'Serviço finalizado e avaliado.',
-                ].map((step, i) => (
-                  <div key={step} style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                    <div style={{
-                      width: 24, height: 24, flexShrink: 0, borderRadius: '50%',
-                      backgroundColor: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.3)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 10, fontWeight: 900, color: '#10b981',
-                    }}>{i + 1}</div>
-                    <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', fontWeight: 600, margin: '2px 0 0', lineHeight: 1.4 }}>{step}</p>
-                  </div>
-                ))}
-              </div>
-              <button
-                onClick={() => navigate('/cadastrar')}
-                style={{
-                  width: '100%', marginTop: 20, padding: '10px 0',
-                  borderRadius: 12, border: 'none',
-                  backgroundColor: '#10b981', color: '#021a0f',
-                  fontSize: 12, fontWeight: 900, cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                }}
-              >
-                Saiba Mais <span>›</span>
-              </button>
-            </div>
-          </div>
-
-        </div>
-      </div>
-
-      {/* ═══════════════════════════════════
-          VÍDEOS
-      ═══════════════════════════════════ */}
-      <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', padding: '48px 16px 64px' }}>
-        <div style={{ maxWidth: 960, margin: '0 auto' }}>
-
-          {/* Header */}
-          <div style={{ textAlign: 'center', marginBottom: 32 }}>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#10b981', display: 'inline-block', animation: 'pulse 2s infinite' }} />
-              <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: '0.25em', textTransform: 'uppercase', color: 'rgba(16,185,129,0.7)' }}>Em Ação</span>
-            </div>
-            <h2 style={{ fontSize: 24, fontWeight: 900, color: '#fff', margin: '0 0 8px' }}>
-              Veja Como Funciona
-            </h2>
-            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', margin: 0 }}>
-              Conheça a plataforma em funcionamento real.
-            </p>
-          </div>
-
-          {/* Video grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 20 }}>
-            {[
-              { src: '/videos/video1.mp4', title: 'Publicando uma Demanda', ref: videoRef1 },
-              { src: '/videos/video2.mp4', title: 'Recebendo e Aceitando Propostas', ref: videoRef2 },
-            ].map((vid) => (
-              <div
-                key={vid.src}
-                style={{
-                  backgroundColor: '#0d2518',
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  borderRadius: 20,
-                  overflow: 'hidden',
-                }}
-              >
-                <video
-                  ref={vid.ref}
-                  src={vid.src}
-                  controls
-                  playsInline
-                  preload="metadata"
-                  style={{
-                    display: 'block',
-                    width: '100%',
-                    height: 'auto',
-                    maxHeight: 400,
-                    backgroundColor: '#000',
-                  }}
-                />
-                <div style={{ padding: '12px 16px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-                  <p style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.65)', margin: 0 }}>
-                    {vid.title}
-                  </p>
+                    onClick={() => navigate('/servicos-publicos')}
+                    className="inline-flex items-center gap-2 px-8 py-4 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm font-bold transition-all text-white/80"
+                  >
+                    Ver Oportunidades
+                  </button>
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
-      </div>
 
+              {/* Right Illustration */}
+              <div className="relative hidden lg:block overflow-hidden bg-[#042f1c]">
+                <img
+                  src="https://images.unsplash.com/photo-1552664730-d307ca884978?q=80&w=1200"
+                  alt="Elite Workforce"
+                  className="absolute inset-0 w-full h-full object-cover object-center opacity-40 mix-blend-luminosity scale-110 group-hover:scale-100 transition-transform duration-[4s]"
+                />
+                <div className="absolute inset-0 bg-gradient-to-r from-[#0d2518] via-transparent to-transparent" />
+
+                {/* Float Card 1 */}
+                <div className="absolute top-10 left-10 glass-panel border-white/10 px-6 py-3 rounded-2xl shadow-2xl animate-[reveal-up_1s_0.5s_forwards] opacity-0">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-[#10b981]">FAST TRACK</span>
+                  <div className="h-1.5 w-12 bg-[#10b981]/20 rounded-full mt-2" />
+                </div>
+
+                {/* Float Card 2 */}
+                <div className="absolute bottom-12 right-12 glass-panel border-[#10b981]/30 p-5 rounded-[32px] shadow-2xl flex items-center gap-4 animate-[reveal-in_1s_0.8s_forwards] opacity-0">
+                  <div className="w-12 h-12 rounded-full bg-[#10b981] flex items-center justify-center text-[#021a0f] font-black text-xl shadow-[0_0_20px_#10b981]">✓</div>
+                  <div className="space-y-2">
+                    <div className="h-2 w-24 bg-white/20 rounded-full" />
+                    <div className="h-2 w-16 bg-white/10 rounded-full" />
+                  </div>
+                </div>
+
+                {/* Floating Status */}
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full flex items-center justify-center">
+                  <div className="w-px h-64 bg-gradient-to-b from-transparent via-[#10b981]/20 to-transparent rotate-12" />
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </section>
+
+        {/* ══════════════════════════════════════════════════
+            DISTRIBUTED GRID: CATEGORIES & WORKFLOW
+        ══════════════════════════════════════════════════ */}
+        <section className="px-4 py-12 md:py-20">
+          <div className="max-w-6xl mx-auto">
+            <div className="flex flex-col lg:flex-row gap-10 items-stretch">
+
+              {/* Main Column: Discover */}
+              <div className="flex-1 glass-panel rounded-[40px] p-8 md:p-12 border-[#34d399]/10">
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+                  <div className="space-y-3">
+                    <h2 className="text-3xl md:text-4xl font-black font-display text-white">
+                      Habilidades <span className="text-[#10b981]">Premium</span>
+                    </h2>
+                    <p className="text-base text-emerald-100/40 font-medium">
+                      Busque profissionais qualificados em mais de 120 categorias.
+                    </p>
+                  </div>
+
+                  <div className="relative w-full md:w-80 group">
+                    <div className="absolute left-6 top-1/2 -translate-y-1/2 text-white/30 group-focus-within:text-[#10b981] transition-colors">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
+                      </svg>
+                    </div>
+                    <input
+                      type="text"
+                      value={search}
+                      onChange={e => setSearch(e.target.value)}
+                      placeholder="Qual especialista procura?"
+                      className="w-full h-14 rounded-2xl border border-white/5 bg-white/5 pl-14 pr-6 text-base text-white placeholder:text-white/20 focus:outline-none focus:border-[#10b981]/40 focus:bg-white/10 transition-all outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Intelligent Grid */}
+                {visible.length > 0 ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
+                    {visible.map((cat, i) => (
+                      <button
+                        key={cat.id}
+                        onClick={() => navigate('/servicos-publicos', { state: { categoryId: cat.id, fixedCategory: true } })}
+                        className={`group glass-panel glass-panel-hover p-6 rounded-3xl flex flex-col items-center justify-center gap-4 transition-all hover:bg-[#10b981]/5 hover:border-[#10b981]/30 opacity-0 animate-[reveal-up_0.6s_forwards]`}
+                        style={{ animationDelay: `${(i % 4) * 0.05}s` }}
+                      >
+                        <div className="w-16 h-16 rounded-2xl bg-[#064328]/50 border border-white/5 flex items-center justify-center text-4xl group-hover:scale-110 group-hover:rotate-3 transition-all">
+                          {categoryIcons[cat.name] || '🔧'}
+                        </div>
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 group-hover:text-emerald-100 transition-colors text-center leading-tight max-w-full truncate px-1">
+                          {cat.name}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-24 glass-panel rounded-3xl border-dashed">
+                    <div className="text-5xl opacity-20 mb-4">🔍</div>
+                    <p className="text-lg font-bold text-white/40">Busca sem resultados para "{search}"</p>
+                  </div>
+                )}
+
+                {/* Control Bar */}
+                <div className="flex flex-col sm:flex-row items-center justify-between mt-12 gap-8 pt-8 border-t border-white/5">
+                  <button
+                    onClick={() => navigate('/servicos-publicos')}
+                    className="px-10 py-4 rounded-xl text-sm font-black text-white/80 hover:text-[#10b981] border border-white/5 bg-white/3 hover:border-[#10b981]/20 transition-all"
+                  >
+                    Explorar Todas as Categorias
+                  </button>
+
+                  {totalPages > 1 && (
+                    <div className="flex items-center gap-4">
+                      <button
+                        disabled={cur === 1}
+                        onClick={() => setPage(p => Math.max(1, p - 1))}
+                        className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center text-white/40 hover:text-white hover:border-[#10b981]/50 disabled:opacity-30 transition-all text-xl"
+                      >←</button>
+                      <div className="flex items-center gap-2">
+                        <span className="text-base font-black text-[#10b981]">{cur}</span>
+                        <span className="text-sm text-white/20">/</span>
+                        <span className="text-sm font-bold text-white/30">{totalPages}</span>
+                      </div>
+                      <button
+                        disabled={cur === totalPages}
+                        onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                        className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center text-white/40 hover:text-white hover:border-[#10b981]/50 disabled:opacity-30 transition-all text-xl"
+                      >→</button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Sidebar Column: Action */}
+              <div className="lg:w-[280px] flex flex-col gap-8 flex-shrink-0">
+                <div className="glass-panel rounded-[40px] p-8 border-[#10b981]/20 flex-1 relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-[#10b981]/5 blur-3xl rounded-full translate-x-1/2 -translate-y-1/2 group-hover:bg-[#10b981]/10 transition-colors" />
+
+                  <h3 className="text-2xl font-black font-display text-white mb-10">Fluxo de <br /><span className="text-[#10b981]">Sucesso</span></h3>
+
+                  <div className="space-y-8 relative z-10">
+                    {[
+                      { l: 'Publique sua demanda.', d: 'Diga o que você precisa.' },
+                      { l: 'Receba e negocie.', d: 'Vários perfis, uma escolha.' },
+                      { l: 'Contrate seguro.', d: 'Pagamento 100% garantido.' },
+                      { l: 'Avalie o resultado.', d: 'Reputação é poder.' },
+                    ].map((step, i) => (
+                      <div key={step.l} className="flex items-start gap-4 stagger-1">
+                        <div className="w-8 h-8 shrink-0 rounded-full bg-[#10b981]/15 border border-[#10b981]/30 flex items-center justify-center text-[11px] font-black text-[#10b981] shadow-[0_0_15px_rgba(16,185,129,0.1)]">
+                          {i + 1}
+                        </div>
+                        <div>
+                          <p className="text-sm font-black text-white leading-tight">{step.l}</p>
+                          <p className="text-[11px] text-white/30 mt-1 font-medium">{step.d}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <button
+                    onClick={() => navigate('/cadastrar')}
+                    className="w-full mt-12 py-5 rounded-2xl bg-[#10b981]/10 hover:bg-[#10b981] text-[#10b981] hover:text-[#021a0f] border border-[#10b981]/30 text-xs font-black tracking-widest uppercase transition-all shadow-glow"
+                  >
+                    Começar Jornada ›
+                  </button>
+                </div>
+
+                {/* Decorative Visual */}
+                <div className="glass-panel rounded-[40px] h-[200px] relative overflow-hidden group">
+                  <img
+                    src="https://images.unsplash.com/photo-1618221195710-dd6b41faeaa6?q=80&w=800"
+                    alt="Atmosphere"
+                    className="absolute inset-0 w-full h-full object-cover opacity-20 group-hover:scale-110 transition-transform duration-[6s]"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#021a0f] via-transparent" />
+                  <div className="absolute bottom-6 left-6 right-6">
+                    <div className="w-8 h-1 bg-[#10b981] rounded-full mb-3" />
+                    <p className="text-xs text-emerald-100/40 italic leading-relaxed">
+                      "Excelência é fazer coisas comuns de maneira incomum."
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </section>
+
+        {/* ══════════════════════════════════════════════════
+            VIDEO SHOWCASE: OPTIMIZED SPATIAL
+        ══════════════════════════════════════════════════ */}
+        <section className="px-4 py-20 border-t border-white/5 bg-gradient-to-b from-transparent to-[#042f1c]/30">
+          <div className="max-w-6xl mx-auto">
+            <div className="text-center mb-16 animate-reveal-up">
+              <div className="inline-flex items-center gap-3 px-4 py-2 rounded-full border border-[#10b981]/20 bg-[#10b981]/5 text-[#10b981] text-[10px] font-black uppercase tracking-[0.3em] mb-4">
+                <span className="w-2 h-2 rounded-full bg-[#10b981] animate-pulse" />
+                Live Demo
+              </div>
+              <h2 className="text-4xl md:text-5xl font-black font-display text-white mb-4">
+                Assista & <span className="text-[#10b981]">Descubra</span>
+              </h2>
+              <p className="text-base text-emerald-100/40 max-w-xl mx-auto font-medium">
+                Veja a facilidade de gerenciar suas demandas e propostas em tempo real.
+                Design pensado para máxima produtividade.
+              </p>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-10">
+              {[
+                { src: '/videos/video1.mp4', title: 'Publicação Inteligente', desc: 'Como descrever sua demanda para os melhores especialistas.' },
+                { src: '/videos/video2.mp4', title: 'Gestão de Propostas', desc: 'Compare, negocie e contrate em poucos cliques.' },
+              ].map((vid, i) => (
+                <div
+                  key={vid.src}
+                  className={`glass-panel rounded-[40px] overflow-hidden group border-white/10 hover:border-[#10b981]/30 transition-all opacity-0 animate-[reveal-up_1s_forwards]`}
+                  style={{ animationDelay: `${i * 0.2}s` }}
+                >
+                  <div className="relative aspect-video sm:aspect-[18/9] bg-black overflow-hidden">
+                    <video
+                      src={vid.src}
+                      controls
+                      playsInline
+                      preload="metadata"
+                      className="absolute inset-0 w-full h-full object-contain"
+                    />
+                  </div>
+                  <div className="p-8 border-t border-white/5 bg-[#042f1c]/40">
+                    <h3 className="text-xl font-black text-white group-hover:text-[#10b981] transition-colors mb-2">{vid.title}</h3>
+                    <p className="text-sm text-emerald-100/30 font-medium leading-relaxed">{vid.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+      </div>
     </div>
   )
 }

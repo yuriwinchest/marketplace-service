@@ -1,0 +1,36 @@
+http:
+  routers:
+    # Hora do Piaui - OG Server (Priority High)
+    horapiaui-og:
+      rule: "(Host(`horapiaui.com`) || Host(`www.horapiaui.com`)) && PathPrefix(`/noticia/`)"
+      priority: 100
+      service: horapiaui-og
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: myresolver
+
+    # Hora do Piaui - Frontend (Default)
+    horapiaui-frontend:
+      rule: "Host(`horapiaui.com`) || Host(`www.horapiaui.com`)"
+      service: horapiaui-frontend
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: myresolver
+
+  services:
+    legacy-nginx:
+      loadBalancer:
+        servers:
+          - url: "http://host.docker.internal:81"
+
+    horapiaui-og:
+      loadBalancer:
+        servers:
+          - url: "http://horapiaui-og:3000"
+
+    horapiaui-frontend:
+      loadBalancer:
+        servers:
+          - url: "http://horapiaui-frontend:80"
