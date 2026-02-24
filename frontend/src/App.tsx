@@ -1,5 +1,5 @@
 
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import { Header } from './components/Header'
 import { Footer } from './components/Footer'
 import { LandingPage } from './pages/LandingPage'
@@ -21,16 +21,14 @@ import './App.css'
 
 function App() {
   const { auth } = useAuthStore()
-  const location = useLocation()
-  const isLanding = location.pathname === '/'
   // categories used in Header or footer? Actually categories is retrieved in useCategories hook inside components now usually. 
   // But Header might still be using it or passed as prop. Let's check Header.
 
   return (
-    <div className="app bg-forest-900 min-h-screen text-white font-sans">
+    <div className="app min-h-screen text-white font-sans" style={{ backgroundColor: '#071a0f' }}>
       <Header />
 
-      <main className={`main-content ${isLanding ? 'pt-0 pb-0' : 'pt-4 pb-20'}`}>
+      <main style={{ padding: 0, margin: 0 }}>
         <Routes>
           {/* Public Routes */}
           <Route path="/" element={

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useCategories } from '../hooks/useCategories'
 import { categoryIcons } from '../data/categoryIcons'
@@ -11,278 +11,344 @@ export function LandingPage() {
 
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
+  const videoRef1 = useRef<HTMLVideoElement>(null)
+  const videoRef2 = useRef<HTMLVideoElement>(null)
 
-  const filteredCategories = useMemo(() => {
-    const term = search.trim().toLowerCase()
-    if (!term) return categories
-    return categories.filter((cat) => cat.name.toLowerCase().includes(term))
+  const filtered = useMemo(() => {
+    const t = search.trim().toLowerCase()
+    return t ? categories.filter(c => c.name.toLowerCase().includes(t)) : categories
   }, [categories, search])
 
-  const totalPages = Math.max(1, Math.ceil(filteredCategories.length / CATEGORIES_PER_PAGE))
-  const currentPage = Math.min(page, totalPages)
-
-  const categoryPage = useMemo(() => {
-    const start = (currentPage - 1) * CATEGORIES_PER_PAGE
-    return filteredCategories.slice(start, start + CATEGORIES_PER_PAGE)
-  }, [filteredCategories, currentPage])
+  const totalPages = Math.max(1, Math.ceil(filtered.length / CATEGORIES_PER_PAGE))
+  const cur = Math.min(page, totalPages)
+  const visible = useMemo(() => filtered.slice((cur - 1) * CATEGORIES_PER_PAGE, cur * CATEGORIES_PER_PAGE), [filtered, cur])
 
   useEffect(() => { setPage(1) }, [search])
 
   return (
-    <div className="min-h-screen bg-[#071a0f] text-white">
+    <div style={{ backgroundColor: '#071a0f', minHeight: '100vh', color: '#fff', overflowX: 'hidden' }}>
 
-      {/* ══════════════════════════════════════════════════
-          HERO CARD
-      ══════════════════════════════════════════════════ */}
-      <section className="px-4 sm:px-6 pt-6 pb-10">
-        <div className="max-w-5xl mx-auto">
-          <div className="relative rounded-3xl overflow-hidden bg-[#0d2518] border border-white/5 shadow-2xl">
+      {/* ═══════════════════════════════════
+          HERO
+      ═══════════════════════════════════ */}
+      <div style={{ padding: '24px 16px 32px' }}>
+        <div style={{ maxWidth: 960, margin: '0 auto' }}>
+          <div style={{
+            backgroundColor: '#0d2518',
+            borderRadius: 24,
+            border: '1px solid rgba(255,255,255,0.06)',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'row',
+            minHeight: 300,
+            position: 'relative',
+          }}>
+            {/* Glow */}
+            <div style={{
+              position: 'absolute', top: -60, right: -60,
+              width: 300, height: 300,
+              background: 'radial-gradient(circle, rgba(16,185,129,0.12) 0%, transparent 70%)',
+              pointerEvents: 'none',
+            }} />
 
-            {/* BG glow */}
-            <div className="absolute top-0 right-0 w-80 h-80 bg-[#10b981]/10 blur-[100px] rounded-full pointer-events-none" />
-            <div className="absolute bottom-0 left-1/4 w-60 h-60 bg-[#10b981]/5 blur-[80px] rounded-full pointer-events-none" />
+            {/* Left text */}
+            <div style={{ flex: 1, padding: '40px 40px 40px 48px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 16, position: 'relative', zIndex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#10b981', display: 'inline-block' }} />
+                <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(16,185,129,0.8)' }}>
+                  Marketplace de Serviços
+                </span>
+              </div>
 
-            <div className="relative grid lg:grid-cols-[1fr_420px] min-h-[320px]">
-
-              {/* Left: Text */}
-              <div className="p-8 md:p-12 flex flex-col justify-center space-y-5">
-
-                {/* Badge */}
-                <div className="inline-flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#10b981]" />
-                  <span className="text-[10px] font-black uppercase tracking-[0.25em] text-[#10b981]/80">
-                    Marketplace de Serviços
-                  </span>
+              <div>
+                <div style={{ fontSize: 32, fontWeight: 900, lineHeight: 1.2, color: '#fff', marginBottom: 4 }}>
+                  Contrate com clareza.
                 </div>
-
-                {/* Headline */}
-                <div>
-                  <h1 className="text-3xl md:text-4xl font-black text-white leading-snug">
-                    Contrate com clareza.
-                  </h1>
-                  <h1 className="text-3xl md:text-4xl font-black text-[#10b981] leading-snug">
-                    Feche negócio sem enrolação.
-                  </h1>
-                </div>
-
-                {/* Sub */}
-                <p className="text-sm text-white/60 max-w-sm leading-relaxed">
-                  Publique sua demanda gratuitamente e receba propostas
-                  de freelancers qualificadas.
-                </p>
-
-                {/* Inline links */}
-                <p className="text-sm text-white/40">
-                  Pague com segurança{' '}
-                  <span className="text-white/20 mx-1">–</span>
-                  <button
-                    onClick={() => navigate('/servicos-publicos')}
-                    className="text-[#10b981] font-semibold hover:underline"
-                  >
-                    Ver Oportunidades
-                  </button>
-                </p>
-
-                {/* CTA */}
-                <div>
-                  <button
-                    onClick={() => navigate('/cadastrar')}
-                    className="inline-flex items-center gap-2 bg-[#10b981] hover:bg-[#059669] text-[#021a0f] px-6 py-3 rounded-xl text-sm font-black transition-all shadow-lg shadow-[#10b981]/20"
-                  >
-                    Publicar Demanda
-                    <span className="text-base">›</span>
-                  </button>
+                <div style={{ fontSize: 32, fontWeight: 900, lineHeight: 1.2, color: '#10b981' }}>
+                  Feche negócio sem enrolação.
                 </div>
               </div>
 
-              {/* Right: Illustration */}
-              <div className="relative hidden lg:block overflow-hidden">
-                <img
-                  src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?q=80&w=800&auto=format&fit=crop"
-                  alt="Profissionais usando a plataforma"
-                  className="absolute inset-0 w-full h-full object-cover object-center mix-blend-luminosity opacity-50"
-                />
-                <div className="absolute inset-0 bg-gradient-to-r from-[#0d2518] via-transparent to-[#0d2518]/30" />
+              <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.55)', lineHeight: 1.6, maxWidth: 340, margin: 0 }}>
+                Publique sua demanda gratuitamente e receba propostas de freelancers qualificadas.
+              </p>
 
-                {/* Floating badge top */}
-                <div className="absolute top-8 left-8 bg-[#021a0f]/80 backdrop-blur-xl border border-white/10 px-4 py-2 rounded-2xl">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-[#10b981]">Atendimento Rápido</span>
-                </div>
-
-                {/* Check card */}
-                <div className="absolute top-1/2 -translate-y-1/2 right-8 w-44 bg-[#021a0f]/90 backdrop-blur-2xl border border-white/10 p-4 rounded-3xl shadow-2xl flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-[#10b981] flex items-center justify-center text-[#021a0f] font-black text-base flex-shrink-0">✓</div>
-                  <div className="space-y-1.5">
-                    <div className="h-2 w-full bg-white/20 rounded-full" />
-                    <div className="h-2 w-2/3 bg-white/10 rounded-full" />
-                  </div>
-                </div>
-
-                {/* Bottom badge */}
-                <div className="absolute bottom-8 right-8 bg-[#10b981] text-[#021a0f] px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider shadow-xl rotate-1">
-                  ✅ Negócio Fechado
-                </div>
-              </div>
-
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ══════════════════════════════════════════════════
-          CATEGORIAS + COMO FUNCIONA
-      ══════════════════════════════════════════════════ */}
-      <section className="px-4 sm:px-6 pb-16">
-        <div className="max-w-5xl mx-auto">
-          <div className="flex flex-col lg:flex-row gap-6 items-start">
-
-            {/* ── LEFT: Categorias ─────────────────────── */}
-            <div className="flex-1 min-w-0">
-
-              {/* Section header */}
-              <div className="mb-6">
-                <h2 className="text-2xl font-black text-white">Encontre o Profissional Certo</h2>
-                <p className="text-sm text-white/40 mt-1">Busque e encontre freelancers para qualquer tipo de serviço.</p>
-              </div>
-
-              {/* Search */}
-              <div className="relative mb-6">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
-                  </svg>
-                </div>
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="O que você precisa?"
-                  className="w-full h-11 rounded-2xl border border-white/10 bg-[#0d2518]/80 pl-10 pr-5 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-[#10b981]/40 transition-all"
-                />
-              </div>
-
-              {/* Category grid — 4 columns */}
-              {categoryPage.length > 0 ? (
-                <div className="grid grid-cols-4 sm:grid-cols-4 gap-3">
-                  {categoryPage.map((cat) => (
-                    <button
-                      key={cat.id}
-                      onClick={() => navigate('/servicos-publicos', { state: { categoryId: cat.id, fixedCategory: true } })}
-                      className="group flex flex-col items-center gap-2 p-4 rounded-2xl bg-[#0d2518] border border-white/5 hover:border-[#10b981]/30 hover:bg-[#0d2518]/80 transition-all"
-                    >
-                      <div className="w-12 h-12 rounded-xl bg-[#064328]/60 border border-white/8 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
-                        {categoryIcons[cat.name] || '🔧'}
-                      </div>
-                      <span className="text-[9px] font-black uppercase tracking-wider text-white/40 group-hover:text-white/70 transition-colors text-center leading-tight line-clamp-2">
-                        {cat.name}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-10 text-white/30">
-                  <p className="text-sm">Nenhuma categoria encontrada</p>
-                </div>
-              )}
-
-              {/* Pagination + Ver Todas */}
-              <div className="flex items-center justify-between mt-6">
-                {totalPages > 1 && (
-                  <div className="flex items-center gap-2">
-                    <button
-                      disabled={currentPage === 1}
-                      onClick={() => setPage((p) => Math.max(1, p - 1))}
-                      className="w-8 h-8 rounded-full border border-white/10 flex items-center justify-center text-white/40 hover:text-white hover:border-[#10b981]/40 disabled:opacity-30 transition-all text-sm"
-                    >←</button>
-                    <span className="text-xs text-white/30 font-bold">{currentPage}/{totalPages}</span>
-                    <button
-                      disabled={currentPage === totalPages}
-                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                      className="w-8 h-8 rounded-full border border-white/10 flex items-center justify-center text-white/40 hover:text-white hover:border-[#10b981]/40 disabled:opacity-30 transition-all text-sm"
-                    >→</button>
-                  </div>
-                )}
-
+              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.35)', margin: 0 }}>
+                Pague com segurança{' '}
+                <span style={{ margin: '0 6px', color: 'rgba(255,255,255,0.2)' }}>–</span>
                 <button
                   onClick={() => navigate('/servicos-publicos')}
-                  className="mx-auto flex items-center gap-2 px-6 py-2.5 rounded-xl border border-white/10 bg-transparent text-sm font-bold text-white/70 hover:text-white hover:border-[#10b981]/30 transition-all"
+                  style={{ background: 'none', border: 'none', color: '#10b981', fontWeight: 700, cursor: 'pointer', fontSize: 13, padding: 0 }}
                 >
-                  Ver Todas as Categorias
-                  <span className="text-[#10b981]">›</span>
+                  Ver Oportunidades
                 </button>
-              </div>
-            </div>
+              </p>
 
-            {/* ── RIGHT: Como Funciona ─────────────────── */}
-            <div className="w-full lg:w-64 shrink-0">
-              <div className="rounded-2xl bg-[#f0fdf4]/5 border border-white/8 backdrop-blur-sm p-6">
-                <h3 className="text-base font-black text-white mb-5">Como Funciona</h3>
-
-                <div className="space-y-4">
-                  {[
-                    'Publique sua demanda.',
-                    'Receba propostas e negocie.',
-                    'Contrate com segurança.',
-                    'Serviço finalizado e avaliado.',
-                  ].map((step, i) => (
-                    <div key={step} className="flex items-start gap-3">
-                      <div className="w-6 h-6 shrink-0 rounded-full bg-[#10b981]/15 border border-[#10b981]/30 flex items-center justify-center text-[10px] font-black text-[#10b981]">
-                        {i + 1}
-                      </div>
-                      <p className="text-sm text-white/70 font-medium leading-snug pt-0.5">{step}</p>
-                    </div>
-                  ))}
-                </div>
-
+              <div style={{ marginTop: 4 }}>
                 <button
                   onClick={() => navigate('/cadastrar')}
-                  className="w-full mt-6 py-2.5 rounded-xl bg-[#10b981] text-xs font-black text-[#021a0f] hover:bg-[#059669] transition-all flex items-center justify-center gap-2"
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 8,
+                    backgroundColor: '#10b981', color: '#021a0f',
+                    border: 'none', borderRadius: 12,
+                    padding: '12px 24px', fontSize: 14, fontWeight: 900,
+                    cursor: 'pointer', boxShadow: '0 8px 24px rgba(16,185,129,0.25)',
+                  }}
                 >
-                  Saiba Mais <span>›</span>
+                  Publicar Demanda <span style={{ fontSize: 16 }}>›</span>
                 </button>
               </div>
             </div>
 
+            {/* Right image */}
+            <div style={{ width: 380, flexShrink: 0, position: 'relative', display: 'flex' }} className="hidden lg:flex">
+              <img
+                src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?q=80&w=800&auto=format&fit=crop"
+                alt=""
+                style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center', opacity: 0.45, mixBlendMode: 'luminosity' }}
+              />
+              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, #0d2518 0%, transparent 40%, #0d2518 100%)' }} />
+              {/* Badge top */}
+              <div style={{
+                position: 'absolute', top: 24, left: 24,
+                backgroundColor: 'rgba(2,26,15,0.85)', border: '1px solid rgba(255,255,255,0.1)',
+                borderRadius: 12, padding: '6px 14px', backdropFilter: 'blur(12px)',
+              }}>
+                <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.2em', textTransform: 'uppercase', color: '#10b981' }}>Atendimento Rápido</span>
+              </div>
+              {/* Badge bottom */}
+              <div style={{
+                position: 'absolute', bottom: 24, right: 24,
+                backgroundColor: '#10b981', color: '#021a0f',
+                borderRadius: 999, padding: '6px 16px',
+                fontSize: 10, fontWeight: 900, letterSpacing: '0.1em',
+                boxShadow: '0 8px 20px rgba(16,185,129,0.3)',
+              }}>
+                ✅ Negócio Fechado
+              </div>
+            </div>
           </div>
         </div>
-      </section>
+      </div>
 
-      {/* ══════════════════════════════════════════════════
-          SEÇÃO DE VÍDEOS
-      ══════════════════════════════════════════════════ */}
-      <section className="px-4 sm:px-6 py-16 border-t border-white/5">
-        <div className="max-w-5xl mx-auto">
+      {/* ═══════════════════════════════════
+          CATEGORIES + SIDEBAR
+      ═══════════════════════════════════ */}
+      <div style={{ padding: '0 16px 48px' }}>
+        <div style={{ maxWidth: 960, margin: '0 auto', display: 'flex', gap: 24, alignItems: 'flex-start', flexWrap: 'wrap' }}>
 
-          <div className="mb-8 text-center">
-            <div className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[#10b981]/60 mb-3">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#10b981] animate-pulse" />
-              Em Ação
+          {/* LEFT: Categories */}
+          <div style={{ flex: '1 1 540px', minWidth: 0 }}>
+            <h2 style={{ fontSize: 24, fontWeight: 900, color: '#fff', margin: '0 0 6px' }}>
+              Encontre o Profissional Certo
+            </h2>
+            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', margin: '0 0 20px' }}>
+              Busque e encontre freelancers para qualquer tipo de serviço.
+            </p>
+
+            {/* Search */}
+            <div style={{ position: 'relative', marginBottom: 20 }}>
+              <svg style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)', pointerEvents: 'none' }}
+                xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
+              </svg>
+              <input
+                type="text"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="O que você precisa?"
+                style={{
+                  width: '100%', height: 44, boxSizing: 'border-box',
+                  backgroundColor: 'rgba(13,37,24,0.8)', border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: 999, paddingLeft: 40, paddingRight: 20,
+                  fontSize: 14, color: '#fff', outline: 'none',
+                }}
+              />
             </div>
-            <h2 className="text-2xl font-black text-white">Veja Como Funciona</h2>
-            <p className="text-sm text-white/40 mt-2">Conheça a plataforma em funcionamento real.</p>
+
+            {/* Grid */}
+            {visible.length > 0 ? (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+                {visible.map(cat => (
+                  <button
+                    key={cat.id}
+                    onClick={() => navigate('/servicos-publicos', { state: { categoryId: cat.id, fixedCategory: true } })}
+                    style={{
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+                      padding: '16px 8px', backgroundColor: '#0d2518',
+                      border: '1px solid rgba(255,255,255,0.06)', borderRadius: 16,
+                      cursor: 'pointer', transition: 'all 0.2s',
+                    }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(16,185,129,0.4)' }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,0.06)' }}
+                  >
+                    <div style={{
+                      width: 48, height: 48, borderRadius: 12,
+                      backgroundColor: 'rgba(6,67,40,0.6)', border: '1px solid rgba(255,255,255,0.06)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 22,
+                    }}>
+                      {categoryIcons[cat.name] || '🔧'}
+                    </div>
+                    <span style={{
+                      fontSize: 9, fontWeight: 900, textTransform: 'uppercase',
+                      letterSpacing: '0.1em', color: 'rgba(255,255,255,0.45)',
+                      textAlign: 'center', lineHeight: 1.3,
+                    }}>
+                      {cat.name}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '40px 0', color: 'rgba(255,255,255,0.3)', fontSize: 14 }}>
+                Nenhuma categoria encontrada
+              </div>
+            )}
+
+            {/* Footer da seção */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, marginTop: 20 }}>
+              {totalPages > 1 && (
+                <>
+                  <button
+                    disabled={cur === 1}
+                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                    style={{
+                      width: 32, height: 32, borderRadius: '50%',
+                      border: '1px solid rgba(255,255,255,0.12)', backgroundColor: 'transparent',
+                      color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 14,
+                      opacity: cur === 1 ? 0.3 : 1,
+                    }}
+                  >←</button>
+                  <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', fontWeight: 700 }}>{cur}/{totalPages}</span>
+                  <button
+                    disabled={cur === totalPages}
+                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                    style={{
+                      width: 32, height: 32, borderRadius: '50%',
+                      border: '1px solid rgba(255,255,255,0.12)', backgroundColor: 'transparent',
+                      color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 14,
+                      opacity: cur === totalPages ? 0.3 : 1,
+                    }}
+                  >→</button>
+                </>
+              )}
+              <button
+                onClick={() => navigate('/servicos-publicos')}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '10px 24px', borderRadius: 12,
+                  border: '1px solid rgba(255,255,255,0.12)', backgroundColor: 'transparent',
+                  color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                }}
+              >
+                Ver Todas as Categorias <span style={{ color: '#10b981' }}>›</span>
+              </button>
+            </div>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-6">
+          {/* RIGHT: Como Funciona */}
+          <div style={{ width: 240, flexShrink: 0 }}>
+            <div style={{
+              backgroundColor: 'rgba(13,37,24,0.6)', border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: 20, padding: '24px 20px',
+            }}>
+              <h3 style={{ fontSize: 16, fontWeight: 900, color: '#fff', margin: '0 0 20px' }}>Como Funciona</h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {[
+                  'Publique sua demanda.',
+                  'Receba propostas e negocie.',
+                  'Contrate com segurança.',
+                  'Serviço finalizado e avaliado.',
+                ].map((step, i) => (
+                  <div key={step} style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                    <div style={{
+                      width: 24, height: 24, flexShrink: 0, borderRadius: '50%',
+                      backgroundColor: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.3)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 10, fontWeight: 900, color: '#10b981',
+                    }}>{i + 1}</div>
+                    <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', fontWeight: 600, margin: '2px 0 0', lineHeight: 1.4 }}>{step}</p>
+                  </div>
+                ))}
+              </div>
+              <button
+                onClick={() => navigate('/cadastrar')}
+                style={{
+                  width: '100%', marginTop: 20, padding: '10px 0',
+                  borderRadius: 12, border: 'none',
+                  backgroundColor: '#10b981', color: '#021a0f',
+                  fontSize: 12, fontWeight: 900, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                }}
+              >
+                Saiba Mais <span>›</span>
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      {/* ═══════════════════════════════════
+          VÍDEOS
+      ═══════════════════════════════════ */}
+      <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', padding: '48px 16px 64px' }}>
+        <div style={{ maxWidth: 960, margin: '0 auto' }}>
+
+          {/* Header */}
+          <div style={{ textAlign: 'center', marginBottom: 32 }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#10b981', display: 'inline-block', animation: 'pulse 2s infinite' }} />
+              <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: '0.25em', textTransform: 'uppercase', color: 'rgba(16,185,129,0.7)' }}>Em Ação</span>
+            </div>
+            <h2 style={{ fontSize: 24, fontWeight: 900, color: '#fff', margin: '0 0 8px' }}>
+              Veja Como Funciona
+            </h2>
+            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', margin: 0 }}>
+              Conheça a plataforma em funcionamento real.
+            </p>
+          </div>
+
+          {/* Video grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 20 }}>
             {[
-              { src: '/videos/video1.mp4', title: 'Publicando uma Demanda' },
-              { src: '/videos/video2.mp4', title: 'Recebendo e Aceitando Propostas' },
+              { src: '/videos/video1.mp4', title: 'Publicando uma Demanda', ref: videoRef1 },
+              { src: '/videos/video2.mp4', title: 'Recebendo e Aceitando Propostas', ref: videoRef2 },
             ].map((vid) => (
-              <div key={vid.src} className="rounded-2xl overflow-hidden border border-white/8 bg-[#0d2518]">
+              <div
+                key={vid.src}
+                style={{
+                  backgroundColor: '#0d2518',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: 20,
+                  overflow: 'hidden',
+                }}
+              >
                 <video
+                  ref={vid.ref}
                   src={vid.src}
                   controls
                   playsInline
                   preload="metadata"
-                  className="w-full aspect-video object-cover"
+                  style={{
+                    display: 'block',
+                    width: '100%',
+                    height: 'auto',
+                    maxHeight: 400,
+                    backgroundColor: '#000',
+                  }}
                 />
-                <div className="px-5 py-3 border-t border-white/5">
-                  <p className="text-sm font-bold text-white/70">{vid.title}</p>
+                <div style={{ padding: '12px 16px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.65)', margin: 0 }}>
+                    {vid.title}
+                  </p>
                 </div>
               </div>
             ))}
           </div>
         </div>
-      </section>
+      </div>
 
     </div>
   )
