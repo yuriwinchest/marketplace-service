@@ -2,16 +2,13 @@ import { ProposalsRepository } from './proposals.repository.js'
 import type { ProposalEntity, ProposalWithDetails, ProposalForClient } from './proposals.repository.js'
 import type { CreateProposalInput, UpdateProposalStatusInput, UpdateProposalInput } from './proposals.schema.js'
 import { SubscriptionsService } from '../subscriptions/subscriptions.service.js'
-import { supabaseAdmin } from '../../shared/database/supabaseClient.js'
-import { NotificationsService } from '../notifications/notifications.service.js'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 export class ProposalsService {
   constructor(
     private repository: ProposalsRepository,
     private subscriptionsService: SubscriptionsService,
-    private notificationsService: NotificationsService,
-  ) { }
+  ) {}
 
   async create(
     db: SupabaseClient,
@@ -19,42 +16,26 @@ export class ProposalsService {
     professionalId: string,
     input: CreateProposalInput,
   ): Promise<ProposalEntity> {
-    // Verificar se já existe proposta do mesmo profissional para a mesma demanda
     const exists = await this.repository.exists(db, input.serviceRequestId, professionalId)
     if (exists) {
-      throw new Error('Você já enviou uma proposta para esta demanda')
+      throw new Error('Voce ja enviou uma proposta para esta demanda')
     }
 
-    // Verificar se a demanda está aberta
     const requestStatus = await this.repository.getServiceRequestStatus(db, input.serviceRequestId)
     if (requestStatus !== 'open') {
       throw new Error('Apenas demandas abertas podem receber propostas')
     }
 
-    // Consumir limite: 3 gratuitas e depois plano mensal
-    await this.subscriptionsService.consumeProposalQuota(professionalId)
-
-    // Obter o ID do cliente dono da demanda
-    const { data: request } = await supabaseAdmin
-      .from('service_requests')
-      .select('client_id, title')
-      .eq('id', input.serviceRequestId)
-      .single()
+    // Enviar proposta exige plano ativo + creditos (quota).
+    await this.subscriptionsService.consumeProposalQuota(db, professionalId)
 
     const proposal = await this.repository.create(db, professionalId, input)
 
-    if (request) {
-      await this.notificationsService.notifyUser(
-        request.client_id,
-        'Nova Proposta Recebida',
-        `Você recebeu uma proposta para a demanda "${request.title}".`,
-        'PROPOSAL_RECEIVED',
-        {
-          serviceRequestId: input.serviceRequestId,
-          proposalId: proposal.id,
-          proposalValue: input.value
-        }
-      )
+    // Best-effort: notify the request owner via SECURITY DEFINER RPC.
+    try {
+      await db.rpc('notify_client_proposal_received', { p_proposal_id: proposal.id })
+    } catch (err) {
+      console.warn('Falha ao notificar cliente sobre proposta recebida:', err)
     }
 
     return proposal
@@ -74,16 +55,16 @@ export class ProposalsService {
 
   async updateProposal(
     db: SupabaseClient,
-    professionalUserId: string,
+    _professionalUserId: string,
     professionalProfileId: string,
     proposalId: string,
     input: UpdateProposalInput,
   ): Promise<ProposalEntity> {
     const existing = await this.repository.findById(db, proposalId)
-    if (!existing) throw new Error('Proposta não encontrada')
+    if (!existing) throw new Error('Proposta nao encontrada')
 
     if (existing.professional_id !== professionalProfileId) {
-      throw new Error('Você não tem permissão para editar esta proposta')
+      throw new Error('Voce nao tem permissao para editar esta proposta')
     }
 
     if (!['pending', 'rejected'].includes(existing.status)) {
@@ -92,21 +73,10 @@ export class ProposalsService {
 
     const updated = await this.repository.updateProposal(db, proposalId, professionalProfileId, input)
 
-    // Notify the demand owner (client) that the proposal changed.
-    const { data: request } = await supabaseAdmin
-      .from('service_requests')
-      .select('client_id, title')
-      .eq('id', updated.service_request_id)
-      .single()
-
-    if (request?.client_id) {
-      await this.notificationsService.notifyUser(
-        request.client_id,
-        'Proposta editada',
-        `O freelancer atualizou a proposta na demanda "${request.title || 'Serviço'}".`,
-        'SYSTEM_ALERT',
-        { subtype: 'PROPOSAL_UPDATED', serviceRequestId: updated.service_request_id, proposalId },
-      )
+    try {
+      await db.rpc('notify_client_proposal_updated', { p_proposal_id: updated.id })
+    } catch (err) {
+      console.warn('Falha ao notificar cliente sobre proposta editada:', err)
     }
 
     return updated
@@ -114,48 +84,25 @@ export class ProposalsService {
 
   async acceptProposal(db: SupabaseClient, proposalId: string, clientId: string): Promise<ProposalEntity> {
     const proposal = await this.repository.findById(db, proposalId)
-    if (!proposal) {
-      throw new Error('Proposta não encontrada')
-    }
+    if (!proposal) throw new Error('Proposta nao encontrada')
 
-    // Verificar se o cliente é dono da demanda
     const { data: serviceRequest } = await db
       .from('service_requests')
-      .select('client_id, status, title')
+      .select('client_id, status')
       .eq('id', proposal.service_request_id)
       .single()
 
-    if (!serviceRequest) {
-      throw new Error('Demanda não encontrada')
-    }
+    if (!serviceRequest) throw new Error('Demanda nao encontrada')
+    if (serviceRequest.client_id !== clientId) throw new Error('Voce nao tem permissao para aceitar esta proposta')
+    if (serviceRequest.status !== 'open') throw new Error('Apenas demandas abertas podem ter propostas aceitas')
 
-    if (serviceRequest.client_id !== clientId) {
-      throw new Error('Você não tem permissão para aceitar esta proposta')
-    }
-
-    if (serviceRequest.status !== 'open') {
-      throw new Error('Apenas demandas abertas podem ter propostas aceitas')
-    }
-
-    // Atualizar proposta para aceita
     const result = await this.repository.updateStatus(db, proposalId, { status: 'accepted' })
-
-    // Atualizar status da demanda para 'matched'
     await this.repository.updateServiceRequestStatus(db, proposal.service_request_id, 'matched')
 
-    // Notificar o profissional (proposal.professional_id is professional_profiles.id)
-    const professionalUserId = await this.repository.getProfessionalUserIdByProfileId(result.professional_id)
-    if (professionalUserId) {
-      await this.notificationsService.notifyUser(
-        professionalUserId,
-      'Proposta Aceita! 🎉',
-      `Sua proposta para a demanda "${serviceRequest.title || 'Serviço'}" foi aceita! O contato do cliente foi liberado.`,
-      'PROPOSAL_ACCEPTED',
-      {
-        serviceRequestId: proposal.service_request_id,
-        proposalId: proposalId
-      }
-    )
+    try {
+      await db.rpc('notify_professional_proposal_status', { p_proposal_id: proposalId, p_status: 'accepted' })
+    } catch (err) {
+      console.warn('Falha ao notificar profissional sobre aceite:', err)
     }
 
     return result
@@ -163,11 +110,8 @@ export class ProposalsService {
 
   async rejectProposal(db: SupabaseClient, proposalId: string, clientId: string): Promise<ProposalEntity> {
     const proposal = await this.repository.findById(db, proposalId)
-    if (!proposal) {
-      throw new Error('Proposta não encontrada')
-    }
+    if (!proposal) throw new Error('Proposta nao encontrada')
 
-    // Verificar se o cliente é dono da demanda
     const { data: serviceRequest } = await db
       .from('service_requests')
       .select('client_id')
@@ -175,23 +119,15 @@ export class ProposalsService {
       .single()
 
     if (serviceRequest?.client_id !== clientId) {
-      throw new Error('Você não tem permissão para rejeitar esta proposta')
+      throw new Error('Voce nao tem permissao para rejeitar esta proposta')
     }
 
     const result = await this.repository.updateStatus(db, proposalId, { status: 'rejected' })
 
-    const professionalUserId = await this.repository.getProfessionalUserIdByProfileId(proposal.professional_id)
-    if (professionalUserId) {
-      await this.notificationsService.notifyUser(
-        professionalUserId,
-      'Proposta Rejeitada',
-      `Sua proposta foi rejeitada pelo cliente.`,
-      'PROPOSAL_REJECTED',
-      {
-        serviceRequestId: proposal.service_request_id,
-        proposalId: proposalId
-      }
-    )
+    try {
+      await db.rpc('notify_professional_proposal_status', { p_proposal_id: proposalId, p_status: 'rejected' })
+    } catch (err) {
+      console.warn('Falha ao notificar profissional sobre rejeicao:', err)
     }
 
     return result
@@ -199,12 +135,10 @@ export class ProposalsService {
 
   async cancelProposal(db: SupabaseClient, proposalId: string, professionalId: string): Promise<ProposalEntity> {
     const proposal = await this.repository.findById(db, proposalId)
-    if (!proposal) {
-      throw new Error('Proposta não encontrada')
-    }
+    if (!proposal) throw new Error('Proposta nao encontrada')
 
     if (proposal.professional_id !== professionalId) {
-      throw new Error('Você não tem permissão para cancelar esta proposta')
+      throw new Error('Voce nao tem permissao para cancelar esta proposta')
     }
 
     if (proposal.status !== 'pending') {
@@ -214,3 +148,4 @@ export class ProposalsService {
     return this.repository.updateStatus(db, proposalId, { status: 'cancelled' })
   }
 }
+

@@ -1,17 +1,16 @@
 
 import { useState, useEffect } from 'react'
-import type { AuthState, User, Profile } from '../types'
+import { useAuthStore } from '../store/useAuthStore'
+import { apiRequest } from '../services/api'
 
-interface UseEditProfileProps {
-    auth: Extract<AuthState, { state: 'authenticated' }>
-    apiFetch: (path: string, init?: RequestInit) => Promise<Response>
-    onProfileUpdated: () => Promise<void>
-    apiBaseUrl: string
-}
+export function useEditProfile() {
+    const { auth, updateUser } = useAuthStore()
 
-export function useEditProfile({ auth, apiFetch, onProfileUpdated, apiBaseUrl }: UseEditProfileProps) {
-    const [name, setName] = useState(auth.user.name || '')
-    const [description, setDescription] = useState(auth.user.description || '')
+    // Safety check - callers should handle auth.state !== 'authenticated'
+    const initialUser = auth.state === 'authenticated' ? auth.user : null
+
+    const [name, setName] = useState(initialUser?.name || '')
+    const [description, setDescription] = useState(initialUser?.description || '')
     const [bio, setBio] = useState('')
     const [phone, setPhone] = useState('')
     const [skills, setSkills] = useState('')
@@ -21,20 +20,23 @@ export function useEditProfile({ auth, apiFetch, onProfileUpdated, apiBaseUrl }:
 
     // Load existing profile data
     useEffect(() => {
+        if (auth.state !== 'authenticated') return
+
         let mounted = true
         const load = async () => {
             try {
-                const res = await apiFetch('/api/users/profile', { method: 'GET' })
-                if (res.ok && mounted) {
-                    const json = await res.json() as { success: true; data: { user: User; profile: Profile | null } }
-                    if (json.data.user?.name) setName(json.data.user.name)
-                    if (json.data.user?.description !== undefined && json.data.user?.description !== null) {
-                        setDescription(json.data.user.description)
+                const data = await apiRequest<any>('/api/users/profile')
+                if (mounted) {
+                    const user = data.user || data.data?.user
+                    const profile = data.profile || data.data?.profile
+                    if (user?.name) setName(user.name)
+                    if (user?.description !== undefined && user?.description !== null) {
+                        setDescription(user.description)
                     }
-                    if (json.data.profile) {
-                        setBio(json.data.profile.bio || '')
-                        setPhone(json.data.profile.phone || '')
-                        setSkills(json.data.profile.skills?.join(', ') || '')
+                    if (profile) {
+                        setBio(profile.bio || '')
+                        setPhone(profile.phone || '')
+                        setSkills(profile.skills?.join(', ') || '')
                     }
                 }
             } catch {
@@ -43,14 +45,14 @@ export function useEditProfile({ auth, apiFetch, onProfileUpdated, apiBaseUrl }:
         }
         load()
         return () => { mounted = false }
-    }, [apiFetch])
+    }, [auth.state])
 
     const saveProfile = async (onSuccess: () => void) => {
         setError(null)
         setLoading(true)
         try {
             const skillsArray = skills.split(',').map(s => s.trim()).filter(Boolean)
-            const res = await apiFetch('/api/users/profile', {
+            const data = await apiRequest<any>('/api/users/profile', {
                 method: 'PUT',
                 body: JSON.stringify({
                     name: name || undefined,
@@ -60,14 +62,15 @@ export function useEditProfile({ auth, apiFetch, onProfileUpdated, apiBaseUrl }:
                     skills: skillsArray.length > 0 ? skillsArray : undefined,
                 }),
             })
-            if (!res.ok) {
-                const json = await res.json() as { success: false; error?: string }
-                throw new Error(json.error || 'Erro ao salvar')
+
+            const nextUser = data.user || data.data?.user
+            if (nextUser) {
+                updateUser(nextUser)
             }
-            await onProfileUpdated()
+
             onSuccess()
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Erro desconhecido')
+        } catch (err: any) {
+            setError(err.message || 'Erro desconhecido')
         } finally {
             setLoading(false)
         }
@@ -79,25 +82,18 @@ export function useEditProfile({ auth, apiFetch, onProfileUpdated, apiBaseUrl }:
         try {
             const formData = new FormData()
             formData.append('avatar', file)
-            const res = await fetch(`${apiBaseUrl}/api/users/profile/avatar`, {
+
+            const data = await apiRequest<any>('/api/users/profile/avatar', {
                 method: 'POST',
-                headers: { Authorization: `Bearer ${auth.token}` },
                 body: formData,
             })
 
-            if (res.ok) {
-                await onProfileUpdated()
-            } else {
-                const text = await res.text()
-                try {
-                    const data = JSON.parse(text)
-                    throw new Error(data.error || 'Erro ao enviar foto')
-                } catch (e) {
-                    throw new Error(e instanceof Error ? e.message : 'Erro ao enviar foto')
-                }
+            const nextUser = data.user || data.data?.user
+            if (nextUser) {
+                updateUser(nextUser)
             }
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Erro de conexao')
+        } catch (err: any) {
+            setError(err.message || 'Erro ao enviar foto')
         } finally {
             setAvatarUploading(false)
         }

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { supabaseAdmin, supabaseAnon } from '../../shared/database/supabaseClient.js'
+import { supabaseAnon } from '../../shared/database/supabaseClient.js'
+import { pool } from '../../shared/database/connection.js'
 import type { CreateRequestInput } from './services.schema.js'
 import { URGENT_PROMOTION_PRICE } from '../subscriptions/subscriptionPlans.js'
 
@@ -25,14 +26,6 @@ export interface ServiceRequestEntity {
   city: string | null
 }
 
-export interface PublicUserEntity {
-  id: string
-  name: string | null
-  description: string | null
-  avatar_url: string | null
-  created_at: string
-}
-
 export class ServicesRepository {
   async create(db: SupabaseClient, clientId: string, input: CreateRequestInput): Promise<{ id: string }> {
     const { data, error } = await db
@@ -54,7 +47,7 @@ export class ServicesRepository {
       .single()
 
     if (error || !data) {
-      throw new Error(error?.message || 'Erro ao criar solicitação')
+      throw new Error(error?.message || 'Erro ao criar solicitacao')
     }
 
     return data
@@ -88,7 +81,7 @@ export class ServicesRepository {
       .order('created_at', { ascending: false })
 
     if (error) {
-      console.warn('Erro ao buscar solicitações:', error.message)
+      console.warn('Erro ao buscar solicitacoes:', error.message)
       return []
     }
 
@@ -115,95 +108,6 @@ export class ServicesRepository {
     }))
   }
 
-  async findProfessionalUserIdsToNotifyNewRequest(
-    input: {
-      categoryId?: string | null
-      locationScope?: string | null
-      uf?: string | null
-      city?: string | null
-    },
-    opts?: { limit?: number },
-  ): Promise<string[]> {
-    const limit = opts?.limit ?? 200
-    const nowIso = new Date().toISOString()
-
-    // Optional: prefilter by category via relationship table.
-    let professionalIdsByCategory: string[] | null = null
-    if (input.categoryId) {
-      const { data, error } = await supabaseAdmin
-        .from('professional_categories')
-        .select('professional_id')
-        .eq('category_id', input.categoryId)
-        .limit(500)
-
-      if (error) {
-        console.warn('Erro ao buscar profissionais por categoria:', error.message)
-      } else {
-        professionalIdsByCategory = (data || []).map((r: any) => r.professional_id).filter(Boolean)
-        // If the relationship table is not populated yet, don't block notifications.
-        if (professionalIdsByCategory.length === 0) {
-          professionalIdsByCategory = null
-        }
-      }
-    }
-
-    // System query: do not use RLS client.
-    // We need to read many professionals regardless of the caller (only for notifications).
-    let query = supabaseAdmin
-      .from('subscriptions')
-      .select(`
-        professional_id,
-        status,
-        current_period_end,
-        professional_profiles!inner (
-          user_id,
-          is_remote,
-          location_scope,
-          uf,
-          city
-        )
-      `)
-      .in('status', ['active', 'trialing'])
-      .or(`current_period_end.is.null,current_period_end.gte.${nowIso}`)
-      .limit(limit)
-
-    if (professionalIdsByCategory) {
-      query = query.in('professional_id', professionalIdsByCategory)
-    }
-
-    const { data, error } = await query
-    if (error) {
-      console.warn('Erro ao buscar assinantes para notificação:', error.message)
-      return []
-    }
-
-    const items = (data || []) as any[]
-
-    // Apply location match in-memory (keeps query simpler with supabase joins).
-    const scope = input.locationScope ?? 'national'
-    const uf = input.uf ?? null
-    const city = input.city ?? null
-
-    const matches = items.filter((row) => {
-      const p = row.professional_profiles
-      if (!p) return false
-      if (p.is_remote === true) return true
-
-      if (scope === 'city') {
-        return city ? (p.city === city) : true
-      }
-      if (scope === 'state') {
-        return uf ? (p.uf === uf) : true
-      }
-      return true
-    })
-
-    return matches
-      .map((row) => row.professional_profiles?.user_id)
-      .filter(Boolean)
-      .slice(0, limit)
-  }
-
   async findOpenRequests(
     pagination: { page: number; limit: number } = { page: 1, limit: 20 },
     filters: {
@@ -218,7 +122,93 @@ export class ServicesRepository {
   ): Promise<ServiceRequestEntity[]> {
     const offset = (pagination.page - 1) * pagination.limit
 
-    // Public feed should be constrained by RLS; use anon client.
+    try {
+      const where: string[] = ["sr.status = 'open'"]
+      const values: Array<string | number> = []
+
+      if (filters.urgentOnly === true) {
+        where.push('sr.is_urgent_promoted = true')
+      }
+
+      if (filters.categoryId) {
+        values.push(filters.categoryId)
+        where.push(`sr.category_id = $${values.length}`)
+      }
+
+      if (filters.urgency) {
+        values.push(filters.urgency)
+        where.push(`sr.urgency = $${values.length}`)
+      }
+
+      if (filters.uf) {
+        values.push(filters.uf)
+        where.push(`sr.uf = $${values.length}`)
+      }
+
+      if (filters.city) {
+        values.push(filters.city)
+        where.push(`sr.city ILIKE $${values.length}`)
+      }
+
+      if (filters.budgetMin !== undefined) {
+        values.push(filters.budgetMin)
+        where.push(`(sr.budget_max IS NULL OR sr.budget_max >= $${values.length})`)
+      }
+
+      if (filters.budgetMax !== undefined) {
+        values.push(filters.budgetMax)
+        where.push(`(sr.budget_min IS NULL OR sr.budget_min <= $${values.length})`)
+      }
+
+      values.push(pagination.limit)
+      const limitParam = values.length
+      values.push(offset)
+      const offsetParam = values.length
+
+      const sql = `
+        SELECT
+          sr.id,
+          sr.category_id,
+          sr.region_id,
+          sr.title,
+          sr.description,
+          sr.budget_min,
+          sr.budget_max,
+          sr.status,
+          sr.urgency,
+          sr.is_urgent_promoted,
+          sr.urgent_promotion_price::text AS urgent_promotion_price,
+          sr.urgent_promoted_at,
+          sr.created_at,
+          sr.location_scope,
+          sr.uf,
+          sr.city,
+          c.name AS category_name,
+          r.name AS region_name
+        FROM service_requests sr
+        LEFT JOIN categories c ON c.id = sr.category_id
+        LEFT JOIN regions r ON r.id = sr.region_id
+        WHERE ${where.join(' AND ')}
+        ORDER BY
+          sr.is_urgent_promoted DESC,
+          sr.urgent_promoted_at DESC NULLS LAST,
+          CASE sr.urgency
+            WHEN 'high' THEN 0
+            WHEN 'medium' THEN 1
+            ELSE 2
+          END,
+          sr.created_at DESC
+        LIMIT $${limitParam}
+        OFFSET $${offsetParam}
+      `
+
+      const { rows } = await pool.query<ServiceRequestEntity>(sql, values)
+      return rows
+    } catch (pgError) {
+      console.warn('Erro ao buscar solicitacoes abertas via conexao direta. Tentando Supabase anon.', pgError)
+    }
+
+    // Fallback: Supabase anon client.
     let query = supabaseAnon
       .from('service_requests')
       .select(`
@@ -248,34 +238,17 @@ export class ServicesRepository {
       .order('created_at', { ascending: false })
       .range(offset, offset + pagination.limit - 1)
 
-    if (filters.urgentOnly === true) {
-      query = query.eq('is_urgent_promoted', true)
-    }
-    if (filters.categoryId) {
-      query = query.eq('category_id', filters.categoryId)
-    }
-    if (filters.urgency) {
-      query = query.eq('urgency', filters.urgency)
-    }
-    if (filters.uf) {
-      query = query.eq('uf', filters.uf)
-    }
-    if (filters.city) {
-      query = query.eq('city', filters.city)
-    }
-    if (filters.budgetMin !== undefined) {
-      // Keep requests whose max budget can cover the min filter
-      query = query.gte('budget_max', filters.budgetMin)
-    }
-    if (filters.budgetMax !== undefined) {
-      // Keep requests whose min budget is below the max filter
-      query = query.lte('budget_min', filters.budgetMax)
-    }
+    if (filters.urgentOnly === true) query = query.eq('is_urgent_promoted', true)
+    if (filters.categoryId) query = query.eq('category_id', filters.categoryId)
+    if (filters.urgency) query = query.eq('urgency', filters.urgency)
+    if (filters.uf) query = query.eq('uf', filters.uf)
+    if (filters.city) query = query.eq('city', filters.city)
+    if (filters.budgetMin !== undefined) query = query.gte('budget_max', filters.budgetMin)
+    if (filters.budgetMax !== undefined) query = query.lte('budget_min', filters.budgetMax)
 
     const { data, error } = await query
-
     if (error) {
-      console.warn('Erro ao buscar solicitações abertas:', error.message)
+      console.warn('Erro ao buscar solicitacoes abertas:', error.message)
       return []
     }
 
@@ -331,7 +304,6 @@ export class ServicesRepository {
     if (error && error.code !== 'PGRST116') {
       console.warn('Erro ao buscar demanda:', error.message)
     }
-
     if (!data) return null
 
     const r: any = data
@@ -358,19 +330,6 @@ export class ServicesRepository {
     }
   }
 
-  async getPublicUser(userId: string): Promise<PublicUserEntity | null> {
-    const { data, error } = await supabaseAdmin
-      .from('users')
-      .select('id, name, description, avatar_url, created_at')
-      .eq('id', userId)
-      .single()
-
-    if (error && error.code !== 'PGRST116') {
-      console.warn('Erro ao buscar usuário público:', error.message)
-    }
-    return (data as PublicUserEntity) || null
-  }
-
   async promoteUrgent(db: SupabaseClient, serviceRequestId: string, clientId: string): Promise<void> {
     const { data: request, error: requestError } = await db
       .from('service_requests')
@@ -378,21 +337,10 @@ export class ServicesRepository {
       .eq('id', serviceRequestId)
       .single()
 
-    if (requestError || !request) {
-      throw new Error('Demanda não encontrada')
-    }
-
-    if (request.client_id !== clientId) {
-      throw new Error('Você não tem permissão para promover esta demanda')
-    }
-
-    if (request.status !== 'open') {
-      throw new Error('Apenas demandas abertas podem ser promovidas como urgentes')
-    }
-
-    if (request.is_urgent_promoted) {
-      return
-    }
+    if (requestError || !request) throw new Error('Demanda nao encontrada')
+    if (request.client_id !== clientId) throw new Error('Voce nao tem permissao para promover esta demanda')
+    if (request.status !== 'open') throw new Error('Apenas demandas abertas podem ser promovidas como urgentes')
+    if (request.is_urgent_promoted) return
 
     const { error } = await db
       .from('service_requests')
@@ -404,9 +352,7 @@ export class ServicesRepository {
       })
       .eq('id', serviceRequestId)
 
-    if (error) {
-      throw new Error(error.message || 'Erro ao promover demanda urgente')
-    }
+    if (error) throw new Error(error.message || 'Erro ao promover demanda urgente')
   }
 
   async updateRequest(
@@ -426,10 +372,7 @@ export class ServicesRepository {
       city?: string | undefined
     },
   ): Promise<ServiceRequestEntity> {
-    const payload: Record<string, unknown> = {
-      updated_at: new Date().toISOString(),
-    }
-
+    const payload: Record<string, unknown> = { updated_at: new Date().toISOString() }
     if (input.categoryId !== undefined) payload.category_id = input.categoryId
     if (input.regionId !== undefined) payload.region_id = input.regionId
     if (input.title !== undefined) payload.title = input.title
@@ -469,9 +412,7 @@ export class ServicesRepository {
       `)
       .single()
 
-    if (error || !data) {
-      throw new Error(error?.message || 'Erro ao atualizar demanda')
-    }
+    if (error || !data) throw new Error(error?.message || 'Erro ao atualizar demanda')
 
     const r: any = data
     return {
@@ -497,33 +438,12 @@ export class ServicesRepository {
     }
   }
 
-  async findProfessionalUserIdsForServiceRequest(serviceRequestId: string): Promise<string[]> {
-    const { data, error } = await supabaseAdmin
-      .from('proposals')
-      .select(`
-        professional_profiles!inner (
-          user_id
-        )
-      `)
-      .eq('service_request_id', serviceRequestId)
-      .neq('status', 'cancelled')
-      .limit(500)
-
-    if (error) {
-      console.warn('Erro ao buscar profissionais da demanda:', error.message)
-      return []
-    }
-
-    const ids = (data || [])
-      .map((row: any) => row.professional_profiles?.user_id)
-      .filter(Boolean)
-
-    return Array.from(new Set(ids))
-  }
-
-  async getProposalStats(serviceRequestId: string, opts?: { includeProfessionals?: boolean }) {
-    // Get proposal stats
-    const { data: proposals, error: proposalsError } = await supabaseAdmin
+  async getProposalStats(
+    db: SupabaseClient,
+    serviceRequestId: string,
+    opts?: { includeProfessionals?: boolean },
+  ): Promise<{ count: number; average_value: number; professionals: { name: string | null; avatar_url: string | null }[] }> {
+    const { data: proposals, error: proposalsError } = await db
       .from('proposals')
       .select('value')
       .eq('service_request_id', serviceRequestId)
@@ -535,17 +455,17 @@ export class ServicesRepository {
 
     const count = proposals?.length || 0
     const avgValue = count > 0
-      ? proposals!.reduce((sum, p) => sum + parseFloat(p.value || '0'), 0) / count
+      ? proposals!.reduce((sum, p: any) => sum + parseFloat(p.value || '0'), 0) / count
       : 0
 
     let professionals: { name: string | null; avatar_url: string | null }[] = []
     if (opts?.includeProfessionals === true) {
-      // Get professionals who made proposals (limited)
-      const { data: professionalsData, error: professionalsError } = await supabaseAdmin
+      // Use public professional projection tables to keep RLS safe.
+      const { data: professionalsData, error: professionalsError } = await db
         .from('proposals')
         .select(`
-          professional_profiles!inner (
-            users!inner (name, avatar_url)
+          professional_public_profiles!inner (
+            professional_public_users!inner (name, avatar_url)
           )
         `)
         .eq('service_request_id', serviceRequestId)
@@ -557,15 +477,12 @@ export class ServicesRepository {
       }
 
       professionals = (professionalsData || []).map((p: any) => ({
-        name: p.professional_profiles?.users?.name || null,
-        avatar_url: p.professional_profiles?.users?.avatar_url || null,
+        name: p.professional_public_profiles?.professional_public_users?.name || null,
+        avatar_url: p.professional_public_profiles?.professional_public_users?.avatar_url || null,
       }))
     }
 
-    return {
-      count,
-      average_value: avgValue,
-      professionals,
-    }
+    return { count, average_value: avgValue, professionals }
   }
 }
+

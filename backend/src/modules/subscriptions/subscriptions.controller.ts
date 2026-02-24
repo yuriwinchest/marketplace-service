@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express'
 import { BaseController } from '../../shared/base/BaseController.js'
 import { SubscriptionsService } from './subscriptions.service.js'
-import { createSubscriptionSchema, updateSubscriptionStatusSchema } from './subscriptions.schema.js'
+import { createSubscriptionSchema } from './subscriptions.schema.js'
 import type { AuthedRequest } from '../../shared/types/auth.js'
 
 export class SubscriptionsController extends BaseController {
@@ -20,7 +20,7 @@ export class SubscriptionsController extends BaseController {
 
     try {
       const db = req.db
-      if (!db) return this.unauthorized(res, 'Não autenticado')
+      if (!db) return this.unauthorized(res, 'Nao autenticado')
 
       const { data: profile, error: profileError } = await db
         .from('professional_profiles')
@@ -29,20 +29,15 @@ export class SubscriptionsController extends BaseController {
         .single()
 
       if (profileError || !profile) {
-        return this.notFound(res, 'Perfil profissional não encontrado')
+        return this.notFound(res, 'Perfil profissional nao encontrado')
       }
 
-      const subscription = await this.subscriptionsService.getByProfessionalId(
-        profile.id,
-        { db },
-      )
-      const quota = await this.subscriptionsService.getQuotaStatus(profile.id, { db })
+      const [subscription, quota] = await Promise.all([
+        this.subscriptionsService.getByProfessionalId(db, profile.id),
+        this.subscriptionsService.getQuotaStatus(db, profile.id),
+      ])
 
-      if (!subscription) {
-        return this.success(res, { subscription: null, quota })
-      }
-
-      return this.success(res, { subscription, quota })
+      return this.success(res, { subscription: subscription ?? null, quota })
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro ao buscar assinatura'
       return this.serverError(res, message)
@@ -56,7 +51,7 @@ export class SubscriptionsController extends BaseController {
 
     try {
       const db = req.db
-      if (!db) return this.unauthorized(res, 'Não autenticado')
+      if (!db) return this.unauthorized(res, 'Nao autenticado')
 
       const { data: profile, error: profileError } = await db
         .from('professional_profiles')
@@ -65,10 +60,10 @@ export class SubscriptionsController extends BaseController {
         .single()
 
       if (profileError || !profile) {
-        return this.notFound(res, 'Perfil profissional não encontrado')
+        return this.notFound(res, 'Perfil profissional nao encontrado')
       }
 
-      const quota = await this.subscriptionsService.getQuotaStatus(profile.id, { db })
+      const quota = await this.subscriptionsService.getQuotaStatus(db, profile.id)
       return this.success(res, { quota })
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro ao buscar limites'
@@ -83,12 +78,12 @@ export class SubscriptionsController extends BaseController {
 
     const parsed = createSubscriptionSchema.safeParse(req.body)
     if (!parsed.success) {
-      return this.error(res, 'Dados inválidos')
+      return this.error(res, 'Dados invalidos')
     }
 
     try {
       const db = req.db
-      if (!db) return this.unauthorized(res, 'Não autenticado')
+      if (!db) return this.unauthorized(res, 'Nao autenticado')
 
       const { data: profile, error: profileError } = await db
         .from('professional_profiles')
@@ -97,14 +92,10 @@ export class SubscriptionsController extends BaseController {
         .single()
 
       if (profileError || !profile) {
-        return this.notFound(res, 'Perfil profissional não encontrado')
+        return this.notFound(res, 'Perfil profissional nao encontrado')
       }
 
-      const subscription = await this.subscriptionsService.create(
-        profile.id,
-        parsed.data,
-      )
-
+      const subscription = await this.subscriptionsService.create(db, profile.id, parsed.data)
       return this.created(res, { subscription })
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro ao criar assinatura'
@@ -112,32 +103,10 @@ export class SubscriptionsController extends BaseController {
     }
   }
 
-  async webhook(req: Request, res: Response): Promise<Response> {
-    // Webhook do Stripe - não requer autenticação do usuário
-    // A validação será feita via assinatura do Stripe
-    const parsed = updateSubscriptionStatusSchema.safeParse(req.body)
-    if (!parsed.success) {
-      return this.error(res, 'Dados inválidos')
-    }
-
-    const stripeSubscriptionId = req.body.stripeSubscriptionId as string
-    if (!stripeSubscriptionId) {
-      return this.error(res, 'stripeSubscriptionId é obrigatório')
-    }
-
-    try {
-      const subscription = await this.subscriptionsService.updateFromWebhook(
-        stripeSubscriptionId,
-        parsed.data,
-      )
-
-      return this.success(res, { subscription })
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Erro ao atualizar assinatura'
-      if (message === 'Assinatura não encontrada') {
-        return this.notFound(res, message)
-      }
-      return this.serverError(res, message)
-    }
+  async webhook(_req: Request, res: Response): Promise<Response> {
+    // Stripe webhook is not implemented securely in this project yet.
+    // Keep the route for future work, but do not allow unauthenticated state changes.
+    return this.forbidden(res, 'Webhook nao configurado')
   }
 }
+

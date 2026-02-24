@@ -1,8 +1,8 @@
 import crypto from 'node:crypto'
 
 export type SniffedImage = {
-  ext: 'jpg' | 'png' | 'webp' | 'gif'
-  mime: 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif'
+  ext: 'jpg' | 'png' | 'webp'
+  mime: 'image/jpeg' | 'image/png' | 'image/webp'
 }
 
 export function sniffImageType(buf: Buffer): SniffedImage | null {
@@ -28,18 +28,6 @@ export function sniffImageType(buf: Buffer): SniffedImage | null {
     return { ext: 'jpg', mime: 'image/jpeg' }
   }
 
-  // GIF: "GIF87a" or "GIF89a"
-  if (
-    buf[0] === 0x47 && // G
-    buf[1] === 0x49 && // I
-    buf[2] === 0x46 && // F
-    buf[3] === 0x38 && // 8
-    (buf[4] === 0x37 || buf[4] === 0x39) && // 7 or 9
-    buf[5] === 0x61 // a
-  ) {
-    return { ext: 'gif', mime: 'image/gif' }
-  }
-
   // WEBP: "RIFF" .... "WEBP"
   if (
     buf[0] === 0x52 && // R
@@ -58,7 +46,6 @@ export function sniffImageType(buf: Buffer): SniffedImage | null {
 }
 
 export function randomUploadBasename(): string {
-  // Avoid Math.random; stable, unguessable name to reduce enumeration.
-  return `${Date.now()}-${crypto.randomBytes(10).toString('hex')}`
+  // No timestamp: avoid leaking upload time. Use an unguessable name to reduce enumeration.
+  return crypto.randomBytes(20).toString('hex')
 }
-

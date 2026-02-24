@@ -100,6 +100,7 @@ Principais ajustes:
 - Cadastro e Perfil
 - Cadastro exige descricao (min 10) e foto (`avatarUrl`).
 - Edicao de perfil inclui campo de descricao.
+- **Refatoração Premium (Fev 2026)**: Implementação de Design System baseado em **Glassmorphism** nas páginas core (Marketplace, Detalhes, Propostas).
 
 ## Deploy (VPS)
 

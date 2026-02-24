@@ -77,6 +77,8 @@ export interface Region { id: string; name: string }
 export interface Service {
   id: string
   client_id?: string
+  user_id?: string
+  client_name?: string | null
   title: string
   description?: string
   category_id?: string | null

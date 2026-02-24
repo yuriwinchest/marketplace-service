@@ -1,6 +1,7 @@
 
 import { useState } from 'react'
-import type { AuthState } from '../types'
+import { useAuthStore } from '../store/useAuthStore'
+import { apiRequest } from '../services/api'
 
 export interface CreateServiceFormState {
     title: string
@@ -17,12 +18,12 @@ export interface CreateServiceFormState {
 }
 
 interface UseCreateServiceProps {
-    auth: AuthState
-    onSuccess: () => void
-    apiFetch: (path: string, init?: RequestInit) => Promise<Response>
+    onSuccess?: () => void
 }
 
-export function useCreateService({ auth, onSuccess, apiFetch }: UseCreateServiceProps) {
+export function useCreateService({ onSuccess }: UseCreateServiceProps = {}) {
+    const { auth } = useAuthStore()
+
     // Form State
     const [title, setTitle] = useState('')
     const [description, setDescription] = useState('')
@@ -58,7 +59,7 @@ export function useCreateService({ auth, onSuccess, apiFetch }: UseCreateService
         setLoading(true)
 
         try {
-            const res = await apiFetch('/api/requests', {
+            await apiRequest('/api/requests', {
                 method: 'POST',
                 body: JSON.stringify({
                     title,
@@ -73,16 +74,10 @@ export function useCreateService({ auth, onSuccess, apiFetch }: UseCreateService
                 }),
             })
 
-            const data = await res.json()
-
-            if (!res.ok) {
-                throw new Error(data.error ?? 'Erro ao criar servico')
-            }
-
             resetForm()
-            onSuccess()
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Erro desconhecido')
+            if (onSuccess) onSuccess()
+        } catch (err: any) {
+            setError(err.message || 'Erro desconhecido')
         } finally {
             setLoading(false)
         }

@@ -36,7 +36,13 @@ const migrationsDir = path.join(process.cwd(), 'migrations')
 
 const main = async () => {
   const db = getDbConfig()
-  const client = new Client(db)
+  // Supabase requires SSL for direct Postgres connections.
+  // Without this, Node `pg` may fail with errors like:
+  // "no pg_hba.conf entry ... SSL off" / "SSL connection is required".
+  const client = new Client({
+    ...db,
+    ssl: { rejectUnauthorized: false },
+  })
 
   await client.connect()
 

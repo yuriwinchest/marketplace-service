@@ -31,7 +31,8 @@ export abstract class BaseController {
     return this.error(res, message, 403)
   }
 
-  protected serverError(res: Response, message = 'Erro interno do servidor'): Response {
-    return this.error(res, message, 500)
+  protected serverError(res: Response, _message = 'Erro interno do servidor'): Response {
+    // Do not leak internal/library error messages to clients.
+    return this.error(res, 'Erro interno do servidor', 500)
   }
 }

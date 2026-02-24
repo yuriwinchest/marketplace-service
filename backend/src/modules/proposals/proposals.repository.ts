@@ -1,5 +1,4 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { supabaseAdmin } from '../../shared/database/supabaseClient.js'
 import type { CreateProposalInput, UpdateProposalStatusInput, UpdateProposalInput } from './proposals.schema.js'
 
 export interface ProposalEntity {
@@ -162,9 +161,6 @@ export class ProposalsRepository {
   }
 
   async findReceivedByClient(db: SupabaseClient, clientUserId: string): Promise<ProposalForClient[]> {
-    // Fetch all proposals where the linked service request belongs to this client.
-    // Using a join filter on the embedded table is not always reliable across PostgREST versions,
-    // so we do it in two steps (ids -> proposals) for correctness.
     const { data: reqs, error: reqsError } = await db
       .from('service_requests')
       .select('id')
@@ -233,19 +229,6 @@ export class ProposalsRepository {
     }))
   }
 
-  async getProfessionalUserIdByProfileId(professionalProfileId: string): Promise<string | null> {
-    const { data, error } = await supabaseAdmin
-      .from('professional_profiles')
-      .select('user_id')
-      .eq('id', professionalProfileId)
-      .single()
-
-    if (error && error.code !== 'PGRST116') {
-      console.warn('Erro ao buscar user_id do profissional:', error.message)
-    }
-    return data?.user_id ?? null
-  }
-
   async findById(db: SupabaseClient, proposalId: string): Promise<ProposalEntity | null> {
     const { data, error } = await db
       .from('proposals')
@@ -267,17 +250,13 @@ export class ProposalsRepository {
       .eq('professional_id', professionalId)
 
     if (error) {
-      console.warn('Erro ao verificar existência de proposta:', error.message)
+      console.warn('Erro ao verificar existencia de proposta:', error.message)
       return false
     }
     return (count || 0) > 0
   }
 
-  async updateStatus(
-    db: SupabaseClient,
-    proposalId: string,
-    input: UpdateProposalStatusInput,
-  ): Promise<ProposalEntity> {
+  async updateStatus(db: SupabaseClient, proposalId: string, input: UpdateProposalStatusInput): Promise<ProposalEntity> {
     const { data, error } = await db
       .from('proposals')
       .update({ status: input.status, updated_at: new Date().toISOString() })
@@ -286,7 +265,7 @@ export class ProposalsRepository {
       .single()
 
     if (error || !data) {
-      throw new Error(error?.message || 'Proposta não encontrada')
+      throw new Error(error?.message || 'Proposta nao encontrada')
     }
 
     return data as ProposalEntity
@@ -298,10 +277,7 @@ export class ProposalsRepository {
     professionalProfileId: string,
     input: UpdateProposalInput,
   ): Promise<ProposalEntity> {
-    const payload: Record<string, unknown> = {
-      updated_at: new Date().toISOString(),
-    }
-
+    const payload: Record<string, unknown> = { updated_at: new Date().toISOString() }
     if (input.value !== undefined) payload.value = input.value
     if (input.description !== undefined) payload.description = input.description
     if (input.estimatedDays !== undefined) payload.estimated_days = input.estimatedDays
@@ -317,7 +293,7 @@ export class ProposalsRepository {
       .single()
 
     if (error || !data) {
-      throw new Error(error?.message || 'Proposta não encontrada')
+      throw new Error(error?.message || 'Proposta nao encontrada')
     }
 
     return data as ProposalEntity
@@ -331,32 +307,24 @@ export class ProposalsRepository {
       .single()
 
     if (error && error.code !== 'PGRST116') {
-      console.warn('Erro ao buscar status da solicitação:', error.message)
+      console.warn('Erro ao buscar status da solicitacao:', error.message)
     }
     return data?.status || null
   }
 
-  async updateServiceRequestStatus(
-    db: SupabaseClient,
-    serviceRequestId: string,
-    status: string,
-  ): Promise<void> {
+  async updateServiceRequestStatus(db: SupabaseClient, serviceRequestId: string, status: string): Promise<void> {
     const { error } = await db
       .from('service_requests')
       .update({ status, updated_at: new Date().toISOString() })
       .eq('id', serviceRequestId)
 
     if (error) {
-      console.warn('Erro ao atualizar status da solicitação:', error.message)
+      console.warn('Erro ao atualizar status da solicitacao:', error.message)
     }
   }
 
-  async executeInTransaction<T>(
-    callback: () => Promise<T>,
-  ): Promise<T> {
-    // Supabase REST API doesn't support transactions directly
-    // For now, we execute the callback directly
-    // For true transactions, you would need to use Supabase Edge Functions with pg
+  async executeInTransaction<T>(callback: () => Promise<T>): Promise<T> {
     return await callback()
   }
 }
+

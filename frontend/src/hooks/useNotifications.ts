@@ -1,9 +1,8 @@
+import { apiRequest } from '../services/api'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { NotificationEntity } from '../types'
 
-type ApiFetch = (path: string, init?: RequestInit) => Promise<Response>
-
-export function useNotifications(enabled: boolean, apiFetch: ApiFetch) {
+export function useNotifications(enabled: boolean) {
   const [items, setItems] = useState<NotificationEntity[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [loading, setLoading] = useState(false)
@@ -12,11 +11,7 @@ export function useNotifications(enabled: boolean, apiFetch: ApiFetch) {
     if (!enabled) return
     setLoading(true)
     try {
-      const res = await apiFetch('/api/notifications?page=1&limit=20', { method: 'GET' })
-      if (!res.ok) return
-      const json = await res.json()
-
-      const data = json.data ?? json
+      const data = await apiRequest<any>('/api/notifications?page=1&limit=20')
       const nextItems = (data.items ?? []) as NotificationEntity[]
       const nextUnread = Number(data.unreadCount ?? 0)
 
@@ -27,7 +22,7 @@ export function useNotifications(enabled: boolean, apiFetch: ApiFetch) {
     } finally {
       setLoading(false)
     }
-  }, [apiFetch, enabled])
+  }, [enabled])
 
   useEffect(() => {
     if (!enabled) return
@@ -40,8 +35,7 @@ export function useNotifications(enabled: boolean, apiFetch: ApiFetch) {
     async (id: string) => {
       if (!enabled) return
       try {
-        const res = await apiFetch(`/api/notifications/${id}/read`, { method: 'PATCH' })
-        if (!res.ok) return
+        await apiRequest(`/api/notifications/${id}/read`, { method: 'PATCH' })
         setItems((prev) =>
           prev.map((n) => (n.id === id ? { ...n, read_at: n.read_at ?? new Date().toISOString() } : n)),
         )
@@ -50,21 +44,20 @@ export function useNotifications(enabled: boolean, apiFetch: ApiFetch) {
         // silent
       }
     },
-    [apiFetch, enabled],
+    [enabled],
   )
 
   const markAllAsRead = useCallback(async () => {
     if (!enabled) return
     try {
-      const res = await apiFetch('/api/notifications/read-all', { method: 'PATCH' })
-      if (!res.ok) return
+      await apiRequest('/api/notifications/read-all', { method: 'PATCH' })
       const now = new Date().toISOString()
       setItems((prev) => prev.map((n) => ({ ...n, read_at: n.read_at ?? now })))
       setUnreadCount(0)
     } catch {
       // silent
     }
-  }, [apiFetch, enabled])
+  }, [enabled])
 
   const hasUnread = useMemo(() => unreadCount > 0, [unreadCount])
 

@@ -10,15 +10,12 @@ const router = Router()
 const proposalsRepository = new ProposalsRepository()
 const subscriptionsRepository = new SubscriptionsRepository()
 const subscriptionsService = new SubscriptionsService(subscriptionsRepository)
-import { notificationsService } from '../notifications/notifications.routes.js'
 
-const proposalsService = new ProposalsService(proposalsRepository, subscriptionsService, notificationsService)
+const proposalsService = new ProposalsService(proposalsRepository, subscriptionsService)
 const controller = new ProposalsController(proposalsService)
 
 router.post('/', authMiddleware, (req, res) => controller.create(req as any, res))
-router.get('/service-request/:serviceRequestId', authMiddleware, (req, res) =>
-  controller.getByServiceRequest(req as any, res),
-)
+router.get('/service-request/:serviceRequestId', authMiddleware, (req, res) => controller.getByServiceRequest(req as any, res))
 router.get('/received', authMiddleware, (req, res) => controller.getReceivedForClient(req as any, res))
 router.get('/me', authMiddleware, (req, res) => controller.getMyProposals(req as any, res))
 router.put('/:id', authMiddleware, (req, res) => controller.update(req as any, res))
@@ -27,3 +24,4 @@ router.post('/:id/reject', authMiddleware, (req, res) => controller.reject(req a
 router.post('/:id/cancel', authMiddleware, (req, res) => controller.cancel(req as any, res))
 
 export default router
+

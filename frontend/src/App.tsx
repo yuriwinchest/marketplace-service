@@ -1,7 +1,5 @@
 
-import { useCallback, useEffect, useState } from 'react'
-import './App.css'
-import { API_BASE_URL } from './config'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { Header } from './components/Header'
 import { Footer } from './components/Footer'
 import { LandingPage } from './pages/LandingPage'
@@ -16,345 +14,73 @@ import { MyServicesPage } from './pages/MyServicesPage'
 import { ProposalsPage } from './pages/ProposalsPage'
 import { ServiceDetailPage } from './pages/ServiceDetailPage'
 import { ProfessionalsPage } from './pages/ProfessionalsPage'
-import { useAuth } from './hooks/useAuth'
+import { ProtectedRoute } from './components/ProtectedRoute'
+import { useAuthStore } from './store/useAuthStore'
+import './App.css'
 
-import type { View, User, Category, Region, Service } from './types'
 
 function App() {
-  const [view, setView] = useState<View>('home')
-  const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null)
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null)
-
-  const { auth, saveAuth, logout, updateUser } = useAuth()
-
-  const [categories, setCategories] = useState<Category[]>([])
-  const [regions, setRegions] = useState<Region[]>([])
-  const [publicDataLoading, setPublicDataLoading] = useState(false)
-  const [publicDataError, setPublicDataError] = useState('')
-  const [services, setServices] = useState<Service[]>([])
-  const [myServices, setMyServices] = useState<Service[]>([])
-  const [loading, setLoading] = useState(false)
-
-  const token = auth.state === 'authenticated' ? auth.token : null
-  const refreshToken = auth.state === 'authenticated' ? auth.refreshToken : null
-  const authedUser = auth.state === 'authenticated' ? auth.user : null
-
-  const apiFetch = useCallback(
-    async (path: string, init?: RequestInit) => {
-      const doFetch = async (overrideToken?: string | null) => {
-        const headers = new Headers(init?.headers)
-        headers.set('Accept', 'application/json')
-        if (init?.body && !(init?.body instanceof FormData)) headers.set('Content-Type', 'application/json')
-        const t = overrideToken ?? token
-        if (t) headers.set('Authorization', `Bearer ${t}`)
-
-        const res = await fetch(`${API_BASE_URL}${path}`, {
-          ...init,
-          headers,
-        })
-        return res
-      }
-
-      const res = await doFetch(token)
-      if (res.status !== 401) return res
-
-      // Avoid loops and refresh only when we have a refresh token.
-      if (!refreshToken) {
-        // Old sessions may not have refresh token stored; force re-login.
-        if (authedUser) {
-          logout()
-          setView('login')
-        }
-        return res
-      }
-      if (path.startsWith('/api/auth/')) return res
-      if (!authedUser) return res
-
-      type RefreshResponse = { token: string; refreshToken: string } | { data: { token: string; refreshToken: string } }
-
-      try {
-        const refreshRes = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
-          method: 'POST',
-          headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
-          body: JSON.stringify({ refreshToken }),
-        })
-
-        if (!refreshRes.ok) {
-          // Refresh token invalid/expired; force re-login.
-          logout()
-          setView('login')
-          return res
-        }
-
-        const refreshJson: RefreshResponse = await refreshRes.json()
-        const data = 'data' in refreshJson ? refreshJson.data : refreshJson
-        const nextToken = typeof data.token === 'string' ? data.token : null
-        const nextRefresh = typeof data.refreshToken === 'string' ? data.refreshToken : refreshToken
-        if (!nextToken) {
-          logout()
-          setView('login')
-          return res
-        }
-
-        saveAuth({
-          state: 'authenticated',
-          token: nextToken,
-          refreshToken: nextRefresh ?? null,
-          user: authedUser,
-        })
-
-        return await doFetch(nextToken)
-      } catch {
-        // If refresh fails due to network, keep the original 401.
-        return res
-      }
-    },
-    [authedUser, logout, refreshToken, saveAuth, setView, token],
-  )
-
-  const loadPublicData = useCallback(async () => {
-    setPublicDataLoading(true)
-    setPublicDataError('')
-    try {
-      const [catRes, regRes] = await Promise.all([
-        apiFetch('/api/categories', { method: 'GET' }),
-        apiFetch('/api/regions', { method: 'GET' }),
-      ])
-
-      if (catRes.ok) {
-        const json = await catRes.json()
-        const items = json.data?.items || json.items || []
-        setCategories(items)
-      } else {
-        setPublicDataError(`Erro ao carregar categorias (HTTP ${catRes.status})`)
-      }
-
-      if (regRes.ok) {
-        const json = await regRes.json()
-        const items = json.data?.items || json.items || []
-        setRegions(items)
-      } else {
-        setPublicDataError((prev) => prev || `Erro ao carregar regiões (HTTP ${regRes.status})`)
-      }
-    } catch {
-      setPublicDataError('Erro de conexão ao carregar dados públicos')
-    } finally {
-      setPublicDataLoading(false)
-    }
-  }, [apiFetch])
-
-  const loadServices = useCallback(async () => {
-    setLoading(true)
-    try {
-      const res = await apiFetch('/api/requests/open', { method: 'GET' })
-      if (res.ok) {
-        const json = await res.json()
-        const items = json.data?.items || json.items || []
-        setServices(items)
-      }
-    } catch {
-      // silent
-    } finally {
-      setLoading(false)
-    }
-  }, [apiFetch])
-
-  const loadMyServices = useCallback(async () => {
-    if (auth.state !== 'authenticated') return
-    try {
-      const res = await apiFetch('/api/requests', { method: 'GET' })
-      if (res.ok) {
-        const json = await res.json()
-        const items = json.data?.items || json.items || []
-        setMyServices(items)
-      }
-    } catch {
-      // silent
-    }
-  }, [apiFetch, auth.state])
-
-  useEffect(() => {
-    void loadPublicData()
-  }, [loadPublicData])
-
-  useEffect(() => {
-    if (auth.state === 'authenticated' || view === 'public-services') {
-      void loadServices()
-    }
-    if (auth.state === 'authenticated') {
-      void loadMyServices()
-    }
-  }, [auth.state, view, loadServices, loadMyServices])
-
-
-  const loadProfile = useCallback(async () => {
-    if (auth.state !== 'authenticated') return
-    try {
-      const res = await apiFetch('/api/users/profile', { method: 'GET' })
-      if (res.ok) {
-        const json = await res.json() as { success: true; data: { user: User } }
-        updateUser(json.data.user)
-      }
-    } catch {
-      // silent
-    }
-  }, [apiFetch, auth.state, updateUser])
-
-  const onLogout = useCallback(() => {
-    logout()
-    setServices([])
-    setMyServices([])
-    setView('home')
-  }, [logout])
-
-  const handleLoginSuccess = useCallback((data: { token: string; refreshToken: string; user: User } | { data: { token: string; refreshToken: string; user: User } }) => {
-    const actualData = 'data' in data ? data.data : data
-    saveAuth({ state: 'authenticated', token: actualData.token, refreshToken: actualData.refreshToken ?? null, user: actualData.user })
-    setView('dashboard')
-  }, [saveAuth])
-
-  const handleRegisterSuccess = useCallback(() => {
-    setView('login')
-  }, [])
-
-  const openServiceDetail = (serviceId: string) => {
-    setSelectedServiceId(serviceId)
-    setView('service-detail')
-  }
-
-  const selectedService = services.find(s => s.id === selectedServiceId) || myServices.find(s => s.id === selectedServiceId)
-
-  useEffect(() => {
-    if (auth.state === 'authenticated' && view === 'home') {
-      setView('dashboard')
-    }
-  }, [auth.state, view])
+  const { auth } = useAuthStore()
+  const location = useLocation()
+  const isLanding = location.pathname === '/'
+  // categories used in Header or footer? Actually categories is retrieved in useCategories hook inside components now usually. 
+  // But Header might still be using it or passed as prop. Let's check Header.
 
   return (
-    <div className="app">
-      <Header view={view} setView={setView} auth={auth} onLogout={onLogout} apiFetch={apiFetch} openServiceDetail={openServiceDetail} />
+    <div className="app bg-forest-900 min-h-screen text-white font-sans">
+      <Header />
 
-      <main className="main">
-        {view === 'home' && auth.state === 'anonymous' && (
-          <LandingPage
-            setView={setView}
-            categories={categories}
-            regions={regions}
-            setSelectedCategoryId={setSelectedCategoryId}
-            publicDataLoading={publicDataLoading}
-            publicDataError={publicDataError}
-          />
-        )}
+      <main className={`main-content ${isLanding ? 'pt-0 pb-0' : 'pt-4 pb-20'}`}>
+        <Routes>
+          {/* Public Routes */}
+          <Route path="/" element={
+            auth.state === 'authenticated'
+              ? <Navigate to="/dashboard" replace />
+              : <LandingPage />
+          } />
 
-        {view === 'dashboard' && auth.state === 'authenticated' && (
-          <Dashboard
-            auth={auth}
-            services={services}
-            myServices={myServices}
-            categories={categories}
-            regions={regions}
-            setView={setView}
-            loadServices={loadServices}
-            loadMyServices={loadMyServices}
-            loadProfile={loadProfile}
-            openServiceDetail={openServiceDetail}
-            apiBaseUrl={API_BASE_URL}
-          />
-        )}
+          <Route path="/login" element={
+            auth.state === 'authenticated'
+              ? <Navigate to="/dashboard" replace />
+              : <LoginPage />
+          } />
 
-        {view === 'services' && auth.state === 'authenticated' && (
-          <ServicesPage
-            services={services}
-            categories={categories}
-            loading={loading}
-            onRefresh={loadServices}
-            openServiceDetail={openServiceDetail}
-          />
-        )}
+          <Route path="/cadastrar" element={
+            auth.state === 'authenticated'
+              ? <Navigate to="/dashboard" replace />
+              : <RegisterPage />
+          } />
 
-        {view === 'public-services' && (
-          <ServicesPage
-            services={services}
-            categories={categories}
-            loading={loading}
-            onRefresh={loadServices}
-            openServiceDetail={openServiceDetail}
-            initialCategory={selectedCategoryId || undefined}
-            fixedCategory={true}
-            onBack={() => setView('home')}
-          />
-        )}
+          <Route path="/profissionais" element={<ProfessionalsPage />} />
+          <Route path="/servicos-publicos" element={<ServicesPage />} />
 
-        {view === 'professionals' && (
-          <ProfessionalsPage
-            apiFetch={apiFetch}
-            apiBaseUrl={API_BASE_URL}
-            setView={setView}
-            onBack={() => setView(auth.state === 'authenticated' ? 'dashboard' : 'home')}
-          />
-        )}
+          {/* Protected Routes */}
+          <Route element={<ProtectedRoute />}>
+            <Route path="/dashboard" element={<Dashboard />} />
 
-        {view === 'my-services' && auth.state === 'authenticated' && (
-          <MyServicesPage
-            myServices={myServices}
-            setView={setView}
-            openServiceDetail={openServiceDetail}
-          />
-        )}
+            <Route path="/perfil" element={<ProfilePage />} />
+            <Route path="/perfil/editar" element={<EditProfilePage />} />
+            <Route path="/propostas" element={<ProposalsPage />} />
 
-        {view === 'create-service' && auth.state === 'authenticated' && auth.user.role === 'client' && (
-          <CreateServicePage
-            auth={auth}
-            categories={categories}
-            setView={setView}
-            onServiceCreated={() => { loadMyServices(); setView('my-services') }}
-            apiFetch={apiFetch}
-          />
-        )}
+            {/* Client only */}
+            <Route element={<ProtectedRoute allowedRoles={['client']} />}>
+              <Route path="/criar-servico" element={<CreateServicePage />} />
+              <Route path="/meus-servicos" element={<MyServicesPage />} />
+            </Route>
 
-        {view === 'proposals' && auth.state === 'authenticated' && (
-          <ProposalsPage auth={auth} apiFetch={apiFetch} openServiceDetail={openServiceDetail} />
-        )}
+            {/* Professional only */}
+            <Route element={<ProtectedRoute allowedRoles={['professional']} />}>
+              <Route path="/servicos" element={<ServicesPage />} />
+            </Route>
 
-        {view === 'service-detail' && selectedServiceId && (
-          <ServiceDetailPage
-            serviceId={selectedServiceId}
-            initialService={selectedService || null}
-            auth={auth}
-            apiFetch={apiFetch}
-            setView={setView}
-          />
-        )}
+            <Route path="/servico/:id" element={<ServiceDetailPage />} />
+          </Route>
 
-        {view === 'profile' && auth.state === 'authenticated' && (
-          <ProfilePage
-            auth={auth}
-            setView={setView}
-            apiFetch={apiFetch}
-            apiBaseUrl={API_BASE_URL}
-            myServicesCount={myServices.length}
-            servicesCount={services.length}
-          />
-        )}
-
-        {view === 'edit-profile' && auth.state === 'authenticated' && (
-          <EditProfilePage
-            auth={auth}
-            setView={setView}
-            apiFetch={apiFetch}
-            apiBaseUrl={API_BASE_URL}
-            onProfileUpdated={loadProfile}
-          />
-        )}
-
-        {view === 'login' && (
-          <LoginPage setView={setView} onLoginSuccess={handleLoginSuccess} apiBaseUrl={API_BASE_URL} />
-        )}
-
-        {view === 'register' && (
-          <RegisterPage setView={setView} onRegisterSuccess={handleRegisterSuccess} apiBaseUrl={API_BASE_URL} />
-        )}
+          {/* Fallback */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       </main>
+
       <Footer />
     </div>
   )

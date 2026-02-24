@@ -119,17 +119,17 @@ export const createApp = (opts?: { serveFrontend?: boolean }) => {
     ) => {
       logger.error(`[ERROR] ${err.message}`, { stack: err.stack })
 
-      if (err.message === 'Tipo de arquivo não permitido') {
+      if (err.message === 'Tipo de arquivo não permitido' || err.message === 'Tipo de arquivo nao permitido') {
         return res.status(400).json({
           success: false,
-          error: 'Tipo de arquivo não permitido. Use JPG, PNG, WEBP ou GIF.',
+          error: 'Tipo de arquivo não permitido. Use JPG, PNG ou WEBP.',
         })
       }
 
-      if (err.message === 'Arquivo inválido ou corrompido') {
+      if (err.message === 'Arquivo inválido ou corrompido' || err.message === 'Arquivo invalido ou corrompido') {
         return res.status(400).json({
           success: false,
-          error: 'Arquivo inválido. Envie uma imagem real (JPG, PNG, WEBP ou GIF).',
+          error: 'Arquivo inválido. Envie uma imagem real (JPG, PNG ou WEBP).',
         })
       }
 
@@ -158,17 +158,18 @@ export const createApp = (opts?: { serveFrontend?: boolean }) => {
   const shouldServeFrontend = opts?.serveFrontend !== false
   if (shouldServeFrontend) {
     const frontendDistPath = path.join(process.cwd(), 'dist')
-    if (fs.existsSync(frontendDistPath)) {
+    const frontendIndexPath = path.join(frontendDistPath, 'index.html')
+    if (fs.existsSync(frontendDistPath) && fs.existsSync(frontendIndexPath)) {
       app.use(express.static(frontendDistPath, { maxAge: config.nodeEnv === 'production' ? '1h' : 0 }))
 
       // SPA fallback - serve index.html for all non-API routes
       app.use((_req, res) => {
-        res.sendFile(path.join(frontendDistPath, 'index.html'))
+        res.sendFile(frontendIndexPath)
       })
 
       logger.info(`Servindo frontend de: ${frontendDistPath}`)
     } else {
-      logger.warn(`Diretório frontend não encontrado: ${frontendDistPath}`)
+      logger.warn(`Frontend static desabilitado (index.html ausente): ${frontendDistPath}`)
     }
   }
 

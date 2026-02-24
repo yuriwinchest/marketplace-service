@@ -19,7 +19,11 @@ const getDbConfig = () => {
 
 const main = async () => {
   const db = getDbConfig()
-  const client = new Client(db)
+  const client = new Client({
+    ...db,
+    // Supabase Postgres requires SSL.
+    ssl: { rejectUnauthorized: false },
+  })
 
   await client.connect()
 

@@ -1,6 +1,5 @@
 import type { Service } from '../types'
-import { formatCurrency, formatTimeAgo, formatLocation, urgencyClass, urgencyLabel } from '../utils/formatters'
-import './ServiceCard.css'
+import { formatCurrency, formatTimeAgo, formatLocation, urgencyLabel } from '../utils/formatters'
 
 interface ServiceCardProps {
     service: Service
@@ -12,7 +11,7 @@ export function ServiceCard({ service, onClick }: ServiceCardProps) {
 
     return (
         <div
-            className={`service-card ${isHighUrgency ? 'service-card-highlighted' : ''}`}
+            className={`group relative bg-forest-800 border ${isHighUrgency ? 'border-emerald-500/30' : 'border-white/5'} rounded-[32px] p-8 transition-all duration-500 hover:border-emerald-500/20 hover:shadow-2xl hover:shadow-emerald-500/5 cursor-pointer overflow-hidden flex flex-col h-full`}
             onClick={() => onClick(service.id)}
             role="button"
             tabIndex={0}
@@ -22,50 +21,68 @@ export function ServiceCard({ service, onClick }: ServiceCardProps) {
                 }
             }}
         >
-            {isHighUrgency && (
-                <div className="service-card-toprow" aria-label="Destaque">
-                    <div className="service-card-highlight-badge">
-                        <span className="service-card-highlight-icon">⚡</span>
-                        <span>Destaque</span>
-                    </div>
-                </div>
-            )}
+            {/* Background Glow */}
+            <div className={`absolute top-0 right-0 w-32 h-32 ${isHighUrgency ? 'bg-emerald-500/10' : 'bg-emerald-500/5'} rounded-full blur-[60px] pointer-events-none group-hover:scale-150 transition-transform duration-700`}></div>
 
-            <div className="service-card-header">
-                <div className="service-card-client">
-                    <div className="service-card-avatar" aria-label="Avatar do cliente">
-                        C
+            {/* Header: Client & Urgency */}
+            <div className="flex items-center justify-between mb-8 relative z-10">
+                <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-[16px] bg-emerald-500/10 flex items-center justify-center text-xl text-emerald-400 font-black border border-emerald-500/10 shadow-inner">
+                        {service.client_name?.charAt(0) || 'C'}
                     </div>
-                    <div className="service-card-client-info">
-                        <div className="service-card-client-name">Cliente</div>
-                        <div className="service-card-time">{formatTimeAgo(service.created_at)}</div>
+                    <div>
+                        <div className="text-white font-black text-sm tracking-tight leading-none group-hover:text-emerald-400 transition-colors">
+                            {service.client_name || 'Particular'}
+                        </div>
+                        <div className="text-[10px] font-black text-gray-500 uppercase tracking-widest mt-1.5 flex items-center gap-1.5">
+                            <span className="w-1 h-1 rounded-full bg-emerald-500/40"></span>
+                            {formatTimeAgo(service.created_at)}
+                        </div>
                     </div>
                 </div>
-                <span className={`badge ${urgencyClass(service.urgency)}`}>
+
+                <div className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.2em] border shadow-sm ${isHighUrgency
+                        ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                        : 'bg-white/5 text-gray-400 border-white/5'
+                    }`}>
                     {urgencyLabel(service.urgency)}
-                </span>
+                </div>
             </div>
 
-            <h3 className="service-card-title">{service.title}</h3>
+            {/* Content: Title & Description */}
+            <div className="flex-grow space-y-4 relative z-10">
+                <h3 className="text-xl font-black text-white leading-snug group-hover:text-emerald-400 transition-colors line-clamp-2">
+                    {service.title}
+                </h3>
+                <p className="text-gray-400 text-sm font-medium leading-relaxed line-clamp-3 italic opacity-80">
+                    "{service.description || 'Sem descrição detalhada disponível para esta demanda.'}"
+                </p>
+            </div>
 
-            <p className="service-card-description">
-                {service.description?.slice(0, 150) || 'Sem descrição'}
-                {service.description && service.description.length > 150 ? '...' : ''}
-            </p>
-
-            <div className="service-card-footer">
-                <div className="service-card-tags">
-                    <span className="service-card-tag">
-                        {service.category_name || 'Geral'}
+            {/* Footer: Tags & Budget */}
+            <div className="mt-10 pt-8 border-t border-white/5 space-y-6 relative z-10">
+                <div className="flex flex-wrap gap-2 text-gray-500">
+                    <span className="bg-forest-900/50 border border-white/5 text-[10px] font-black text-gray-400 uppercase tracking-widest px-3 py-1.5 rounded-xl flex items-center gap-2">
+                        <span>📁</span> {service.category_name || 'Geral'}
                     </span>
-                    <span className="service-card-tag">
-                        {formatLocation(service)}
+                    <span className="bg-forest-900/50 border border-white/5 text-[10px] font-black text-gray-400 uppercase tracking-widest px-3 py-1.5 rounded-xl flex items-center gap-2">
+                        <span>📍</span> {formatLocation(service)}
                     </span>
                 </div>
-                <div className="service-card-budget">
-                    {service.budget_min && service.budget_max
-                        ? `${formatCurrency(service.budget_min)} - ${formatCurrency(service.budget_max)}`
-                        : 'A combinar'}
+
+                <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                        <div className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Orçamento Estimado</div>
+                        <div className="text-2xl font-black text-white tracking-tighter">
+                            {service.budget_min && service.budget_max
+                                ? `${formatCurrency(service.budget_min)} - ${formatCurrency(service.budget_max)}`
+                                : 'A combinar'}
+                        </div>
+                    </div>
+
+                    <div className="w-10 h-10 rounded-full bg-emerald-500 text-forest-900 flex items-center justify-center font-black shadow-lg shadow-emerald-500/20 group-hover:translate-x-2 transition-transform duration-300">
+                        →
+                    </div>
                 </div>
             </div>
         </div>

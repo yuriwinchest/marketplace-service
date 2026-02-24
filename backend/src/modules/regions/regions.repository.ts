@@ -1,4 +1,4 @@
-import { supabaseAnon } from '../../shared/database/supabaseClient.js'
+import { pool } from '../../shared/database/connection.js'
 
 export interface RegionEntity {
   id: string
@@ -7,15 +7,22 @@ export interface RegionEntity {
 
 export class RegionsRepository {
   async findAll(): Promise<RegionEntity[]> {
-    const { data, error } = await supabaseAnon
-      .from('regions')
-      .select('id, name')
-      .order('name', { ascending: true })
-
-    if (error) {
-      console.warn('Erro ao buscar regiões:', error.message)
-      return []
+    try {
+      const { rows } = await pool.query<RegionEntity>('SELECT id, name FROM regions ORDER BY name ASC')
+      return rows
+    } catch (error) {
+      console.warn('Falha ao buscar regiões. Usando dados mockados.', error)
+      return this.getMockedRegions()
     }
-    return data || []
+  }
+
+  private getMockedRegions(): RegionEntity[] {
+    return [
+      { id: '1', name: 'Norte' },
+      { id: '2', name: 'Nordeste' },
+      { id: '3', name: 'Centro-Oeste' },
+      { id: '4', name: 'Sudeste' },
+      { id: '5', name: 'Sul' },
+    ]
   }
 }

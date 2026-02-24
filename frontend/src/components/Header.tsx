@@ -1,21 +1,23 @@
-import type { View, AuthState, NotificationEntity } from '../types'
-import './Header.css'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNotifications } from '../hooks/useNotifications'
 import { formatTimeAgo } from '../utils/formatters'
+import { useAuthStore } from '../store/useAuthStore'
+import './Header.css'
 
-interface HeaderProps {
-    view: View
-    setView: (view: View) => void
-    auth: AuthState
-    onLogout: () => void
-    apiFetch: (path: string, init?: RequestInit) => Promise<Response>
-    openServiceDetail: (serviceId: string) => void
-}
+export function Header() {
+    const { auth, logout } = useAuthStore()
+    const navigate = useNavigate()
+    const location = useLocation()
+    const currentPath = location.pathname
 
-export function Header({ view, setView, auth, onLogout, apiFetch, openServiceDetail }: HeaderProps) {
     const handleLogoClick = () => {
-        setView(auth.state === 'authenticated' ? 'dashboard' : 'home')
+        navigate(auth.state === 'authenticated' ? '/dashboard' : '/')
+    }
+
+    const onLogout = () => {
+        logout()
+        navigate('/')
     }
 
     const notifEnabled = auth.state === 'authenticated'
@@ -26,7 +28,7 @@ export function Header({ view, setView, auth, onLogout, apiFetch, openServiceDet
         markAsRead,
         markAllAsRead,
         refresh,
-    } = useNotifications(notifEnabled, apiFetch)
+    } = useNotifications(notifEnabled)
 
     const [notifOpen, setNotifOpen] = useState(false)
     const notifRef = useRef<HTMLDivElement | null>(null)
@@ -43,12 +45,12 @@ export function Header({ view, setView, auth, onLogout, apiFetch, openServiceDet
         return () => document.removeEventListener('mousedown', onDocClick)
     }, [notifOpen])
 
-    const getMetaString = (n: NotificationEntity, key: string): string | undefined => {
+    const getMetaString = (n: any, key: string): string | undefined => {
         const value = n.metadata?.[key]
         return typeof value === 'string' ? value : undefined
     }
 
-    const notifIcon = (n: NotificationEntity) => {
+    const notifIcon = (n: any) => {
         if (n.type === 'PROPOSAL_RECEIVED') return '📩'
         if (n.type === 'PROPOSAL_ACCEPTED') return '✅'
         if (n.type === 'PROPOSAL_REJECTED') return '❌'
@@ -72,23 +74,22 @@ export function Header({ view, setView, auth, onLogout, apiFetch, openServiceDet
         }
     }
 
-    const handleNotificationClick = async (n: NotificationEntity) => {
-        // Mark read first to keep badge responsive.
+    const handleNotificationClick = async (n: any) => {
         if (!n.read_at) await markAsRead(n.id)
 
         const serviceRequestId = getMetaString(n, 'serviceRequestId')
         if (serviceRequestId) {
-            openServiceDetail(serviceRequestId)
+            navigate(`/servico/${serviceRequestId}`)
             setNotifOpen(false)
         }
     }
 
     return (
-        <header className="header">
-            <div className="header-container">
+        <header className="header bg-forest-900 border-b border-white/5 sticky top-0 z-50">
+            <div className="header-container max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
                 {/* Logo */}
                 <div
-                    className="header-logo"
+                    className="header-logo cursor-pointer"
                     onClick={handleLogoClick}
                     role="button"
                     tabIndex={0}
@@ -100,120 +101,124 @@ export function Header({ view, setView, auth, onLogout, apiFetch, openServiceDet
                     aria-label="Ir para página inicial"
                 >
                     <img
-                        className="header-logo-img"
+                        className="h-8 w-auto"
                         src="/logo-header.png"
-                        alt="FazServiço - Marketplace de Serviços"
+                        alt="FazServiço"
                     />
                 </div>
 
                 {/* Navigation */}
                 {auth.state === 'authenticated' && (
-                    <nav className="header-nav" aria-label="Navegação principal">
-                        <button
-                            className={`nav-item ${view === 'dashboard' ? 'active' : ''}`}
-                            onClick={() => setView('dashboard')}
-                            aria-current={view === 'dashboard' ? 'page' : undefined}
+                    <nav className="hidden md:flex items-center gap-1" aria-label="Navegação principal">
+                        <Link
+                            to="/dashboard"
+                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${currentPath === '/dashboard' ? 'bg-emerald-500/10 text-emerald-400' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
                         >
-                            <span className="nav-item-icon">📊</span>
-                            <span>Dashboard</span>
-                        </button>
+                            📊 Dashboard
+                        </Link>
 
                         {auth.user.role === 'professional' && (
-                            <button
-                                className={`nav-item ${view === 'services' ? 'active' : ''}`}
-                                onClick={() => setView('services')}
-                                aria-current={view === 'services' ? 'page' : undefined}
+                            <Link
+                                to="/servicos"
+                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${currentPath === '/servicos' ? 'bg-emerald-500/10 text-emerald-400' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
                             >
-                                <span className="nav-item-icon">🔍</span>
-                                <span>Buscar Serviços</span>
-                            </button>
+                                🔍 Buscar Serviços
+                            </Link>
                         )}
 
                         {auth.user.role === 'client' && (
-                            <button
-                                className={`nav-item ${view === 'my-services' ? 'active' : ''}`}
-                                onClick={() => setView('my-services')}
-                                aria-current={view === 'my-services' ? 'page' : undefined}
+                            <Link
+                                to="/meus-servicos"
+                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${currentPath === '/meus-servicos' ? 'bg-emerald-500/10 text-emerald-400' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
                             >
-                                <span className="nav-item-icon">📋</span>
-                                <span>Meus Serviços</span>
-                            </button>
+                                📋 Meus Serviços
+                            </Link>
                         )}
 
-                        <button
-                            className={`nav-item ${view === 'proposals' ? 'active' : ''}`}
-                            onClick={() => setView('proposals')}
-                            aria-current={view === 'proposals' ? 'page' : undefined}
+                        <Link
+                            to="/propostas"
+                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${currentPath === '/propostas' ? 'bg-emerald-500/10 text-emerald-400' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
                         >
-                            <span className="nav-item-icon">💼</span>
-                            <span>Propostas</span>
-                        </button>
+                            💼 Propostas
+                        </Link>
+                    </nav>
+                )}
+
+                {auth.state === 'anonymous' && (
+                    <nav className="hidden md:flex items-center gap-8 ml-auto mr-12" aria-label="Atalhos da página inicial">
+                        <a href="/#como-funciona" className="text-white/90 hover:text-[#10b981] text-sm font-bold transition-colors flex items-center gap-1">
+                            Como Funciona
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                        </a>
+                        <a href="/#categorias" className="text-white/90 hover:text-[#10b981] text-sm font-bold transition-colors flex items-center gap-1">
+                            Categorias
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                        </a>
                     </nav>
                 )}
 
                 {/* Actions */}
-                <div className="header-actions">
+                <div className="flex items-center gap-6">
                     {auth.state === 'anonymous' ? (
                         <>
-                            <button
-                                className="btn btn-primary"
-                                onClick={() => setView('login')}
+                            <Link
+                                to="/login"
+                                className="text-sm font-bold text-white hover:text-[#10b981] transition-colors"
                             >
                                 Entrar
-                            </button>
-                            <button
-                                className="btn btn-primary"
-                                onClick={() => setView('register')}
+                            </Link>
+                            <Link
+                                to="/cadastrar"
+                                className="bg-[#10b981] hover:bg-[#059669] text-[#021a0f] px-6 py-2.5 rounded-xl text-sm font-black transition-all shadow-lg shadow-teal-500/10"
                             >
-                                Cadastrar
-                            </button>
+                                Cadastrar-se
+                            </Link>
                         </>
                     ) : (
                         <>
-                            <div className="header-notif" ref={notifRef}>
+                            <div className="header-notif relative" ref={notifRef}>
                                 <button
-                                    className={`header-notif-btn ${notifOpen ? 'open' : ''}`}
+                                    className={`p-2 rounded-lg transition-colors ${notifOpen ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
                                     onClick={onOpenNotif}
                                     aria-label="Notificações"
-                                    title="Notificações"
                                 >
-                                    <span className="header-notif-icon">🔔</span>
+                                    🔔
                                     {hasUnread && (
-                                        <span className="header-notif-badge" aria-label={`${unreadCount} não lidas`}>
-                                            {unreadCount > 99 ? '99+' : unreadCount}
-                                        </span>
+                                        <span className="absolute top-1 right-1 w-2 h-2 bg-emerald-500 rounded-full border-2 border-forest-900" />
                                     )}
                                 </button>
 
                                 {notifOpen && (
-                                    <div className="header-notif-dropdown" role="menu" aria-label="Lista de notificações">
-                                        <div className="header-notif-head">
+                                    <div className="absolute right-0 mt-2 w-80 bg-forest-800 border border-white/5 rounded-xl shadow-2xl overflow-hidden z-[100]" role="menu">
+                                        <div className="p-4 border-b border-white/5 flex items-center justify-between">
                                             <div>
-                                                <div className="header-notif-title">Notificações</div>
-                                                <div className="header-notif-subtitle">{notifSubtitle}</div>
+                                                <div className="text-sm font-semibold text-white">Notificações</div>
+                                                <div className="text-xs text-emerald-400/70">{notifSubtitle}</div>
                                             </div>
-                                            <button className="btn btn-ghost btn-sm" onClick={() => void markAllAsRead()}>
+                                            <button className="text-xs text-gray-400 hover:text-white transition-colors" onClick={() => void markAllAsRead()}>
                                                 Marcar tudo
                                             </button>
                                         </div>
 
-                                        <div className="header-notif-list notificationsList">
+                                        <div className="max-h-96 overflow-y-auto">
                                             {notifications.length === 0 ? (
-                                                <div className="noData">Nenhuma notificação</div>
+                                                <div className="p-8 text-center text-sm text-gray-500">Nenhuma notificação</div>
                                             ) : (
                                                 notifications.slice(0, 10).map((n) => (
                                                     <button
                                                         key={n.id}
-                                                        className={`notifItem ${n.read_at ? '' : 'unread'}`}
+                                                        className={`w-full p-4 text-left hover:bg-white/5 transition-colors border-b border-white/5 last:border-0 ${n.read_at ? 'opacity-60' : 'bg-emerald-500/5'}`}
                                                         onClick={() => void handleNotificationClick(n)}
                                                         type="button"
                                                     >
-                                                        <span className="notifIcon">{notifIcon(n)}</span>
-                                                        <span className="notifContent">
-                                                            <div className="notifTitle">{n.title}</div>
-                                                            <div className="notifMessage">{n.message}</div>
-                                                            <div className="notifTime">{formatTimeAgo(n.created_at)}</div>
-                                                        </span>
+                                                        <div className="flex gap-3">
+                                                            <span className="text-lg">{notifIcon(n)}</span>
+                                                            <div className="flex-1 min-w-0">
+                                                                <div className="text-sm font-medium text-white truncate">{n.title}</div>
+                                                                <div className="text-xs text-gray-400 line-clamp-2 mt-0.5">{n.message}</div>
+                                                                <div className="text-[10px] text-gray-500 mt-2">{formatTimeAgo(n.created_at)}</div>
+                                                            </div>
+                                                        </div>
                                                     </button>
                                                 ))
                                             )}
@@ -221,22 +226,25 @@ export function Header({ view, setView, auth, onLogout, apiFetch, openServiceDet
                                     </div>
                                 )}
                             </div>
-                            <button
-                                className="header-profile-btn"
-                                onClick={() => setView('profile')}
-                                aria-label="Ver perfil"
-                                title="Meu Perfil"
+
+                            <Link
+                                to="/perfil"
+                                className="flex items-center gap-2 p-1.5 pr-3 rounded-full bg-white/5 hover:bg-white/10 transition-colors border border-white/5"
                             >
-                                <span className="header-profile-icon">👤</span>
-                                <span className="header-profile-name">
+                                <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400">
+                                    👤
+                                </div>
+                                <span className="text-sm font-medium text-white max-w-[100px] truncate">
                                     {auth.user.name?.split(' ')[0] || 'Perfil'}
                                 </span>
-                            </button>
+                            </Link>
+
                             <button
-                                className="btn btn-ghost btn-sm"
+                                className="p-2 text-gray-400 hover:text-red-400 transition-colors"
                                 onClick={onLogout}
+                                title="Sair"
                             >
-                                Sair
+                                🚪
                             </button>
                         </>
                     )}

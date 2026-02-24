@@ -4,7 +4,7 @@ import { ServicesService } from './services.service.js'
 import { createRequestSchema, openRequestsQuerySchema, requestIdParamsSchema, updateRequestSchema } from './services.schema.js'
 import type { AuthedRequest } from '../../shared/types/auth.js'
 import { SubscriptionsRepository } from '../subscriptions/subscriptions.repository.js'
-import { supabaseAdmin, supabaseAnon } from '../../shared/database/supabaseClient.js'
+import { supabaseAnon } from '../../shared/database/supabaseClient.js'
 
 export class ServicesController extends BaseController {
   constructor(private servicesService: ServicesService) {
@@ -18,16 +18,16 @@ export class ServicesController extends BaseController {
 
     const parsed = createRequestSchema.safeParse(req.body)
     if (!parsed.success) {
-      return this.error(res, 'Dados inválidos')
+      return this.error(res, 'Dados invalidos')
     }
 
     try {
       const db = req.db
-      if (!db) return this.unauthorized(res, 'Não autenticado')
+      if (!db) return this.unauthorized(res, 'Nao autenticado')
       const result = await this.servicesService.createRequest(db, req.user.id, parsed.data)
       return this.created(res, result)
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Erro ao criar solicitação'
+      const message = error instanceof Error ? error.message : 'Erro ao criar solicitacao'
       return this.serverError(res, message)
     }
   }
@@ -39,31 +39,21 @@ export class ServicesController extends BaseController {
 
     try {
       const db = req.db
-      if (!db) return this.unauthorized(res, 'Não autenticado')
+      if (!db) return this.unauthorized(res, 'Nao autenticado')
       const requests = await this.servicesService.getClientRequests(db, req.user.id)
       return this.success(res, { items: requests })
-    } catch (error) {
-      return this.serverError(res, 'Erro ao buscar solicitações')
+    } catch {
+      return this.serverError(res, 'Erro ao buscar solicitacoes')
     }
   }
 
   async getOpenRequests(req: Request, res: Response): Promise<Response> {
     const parsed = openRequestsQuerySchema.safeParse(req.query)
     if (!parsed.success) {
-      return this.error(res, 'Parâmetros inválidos')
+      return this.error(res, 'Parametros invalidos')
     }
 
-    const {
-      page,
-      limit,
-      urgentOnly,
-      categoryId,
-      urgency,
-      uf,
-      city,
-      budgetMin,
-      budgetMax,
-    } = parsed.data
+    const { page, limit, urgentOnly, categoryId, urgency, uf, city, budgetMin, budgetMax } = parsed.data
 
     try {
       const filters: {
@@ -84,27 +74,25 @@ export class ServicesController extends BaseController {
       if (budgetMin !== undefined) filters.budgetMin = budgetMin
       if (budgetMax !== undefined) filters.budgetMax = budgetMax
 
-      const requests = await this.servicesService.getOpenRequests(
-        { page, limit },
-        filters,
-      )
+      const requests = await this.servicesService.getOpenRequests({ page, limit }, filters)
       return this.success(res, { items: requests })
-    } catch (error) {
-      return this.serverError(res, 'Erro ao buscar solicitações')
+    } catch {
+      return this.serverError(res, 'Erro ao buscar solicitacoes')
     }
   }
 
   async getRequestDetail(req: Request, res: Response): Promise<Response> {
     const parsed = requestIdParamsSchema.safeParse(req.params)
     if (!parsed.success) {
-      return this.error(res, 'Parâmetros inválidos')
+      return this.error(res, 'Parametros invalidos')
     }
 
     const authedReq = req as AuthedRequest
-    const db = authedReq.db ?? supabaseAnon
-    const request = await this.servicesService.getRequestById(db, parsed.data.id)
+    const dbForRequest = authedReq.db ?? supabaseAnon
+
+    const request = await this.servicesService.getRequestById(dbForRequest, parsed.data.id)
     if (!request) {
-      return this.notFound(res, 'Demanda não encontrada')
+      return this.notFound(res, 'Demanda nao encontrada')
     }
 
     // Default: never expose client identity to anonymous users.
@@ -112,7 +100,6 @@ export class ServicesController extends BaseController {
     let includeClient = false
 
     if (authedUser?.role === 'client' && request.client_id === authedUser.id) {
-      // Owner can see their own identity (no extra plan needed).
       includeClient = true
     }
 
@@ -128,14 +115,13 @@ export class ServicesController extends BaseController {
         return data ? data : null
       })()
 
-      if (profile?.id) {
+      if (profile?.id && authedReq.db) {
         const subsRepo = new SubscriptionsRepository()
         const isActive = await subsRepo.isActive(authedReq.db, profile.id)
         includeClient = isActive
       }
     }
 
-    // Build response (redact client_id by default).
     const base = {
       id: request.id,
       title: request.title,
@@ -159,25 +145,25 @@ export class ServicesController extends BaseController {
       return this.success(res, { request: base, client: null })
     }
 
-    // Only public user fields (no email/phone).
-    const client = await (async () => {
-      // Reuse services repository indirectly via service (keeps controller small-ish).
-      // We already imported supabase here for plan check, so direct fetch is acceptable too.
-      const { data } = await supabaseAdmin
-        .from('users')
-        .select('id, name, description, avatar_url, created_at')
-        .eq('id', request.client_id as string)
-        .single()
-      return data ? data : null
-    })()
+    if (!authedReq.db) {
+      return this.success(res, { request: base, client: null })
+    }
 
-    return this.success(res, { request: base, client })
+    const { data: client, error } = await authedReq.db
+      .rpc('get_user_public', { p_user_id: request.client_id })
+      .single()
+
+    if (error) {
+      console.warn('Falha ao buscar dados publicos do cliente:', error.message)
+    }
+
+    return this.success(res, { request: base, client: client ?? null })
   }
 
   async getProposalStats(req: Request, res: Response): Promise<Response> {
     const parsed = requestIdParamsSchema.safeParse(req.params)
     if (!parsed.success) {
-      return this.error(res, 'Parâmetros inválidos')
+      return this.error(res, 'Parametros invalidos')
     }
 
     const serviceRequestId = parsed.data.id
@@ -185,6 +171,7 @@ export class ServicesController extends BaseController {
     // Only the demand owner can see who sent proposals.
     const authedUser = (req as any).user as { id: string; role: string } | undefined
     let includeProfessionals = false
+
     if (authedUser?.role === 'client') {
       const authedReq = req as AuthedRequest
       if (authedReq.db) {
@@ -198,14 +185,12 @@ export class ServicesController extends BaseController {
     }
 
     try {
-      const stats = await this.servicesService.getProposalStats(serviceRequestId, {
-        includeProfessionals,
-      })
-
-      // If not allowed, the repository returns an empty `professionals` array.
+      const authedReq = req as AuthedRequest
+      const db = authedReq.db ?? supabaseAnon
+      const stats = await this.servicesService.getProposalStats(db, serviceRequestId, { includeProfessionals })
       return this.success(res, stats)
-    } catch (error) {
-      return this.serverError(res, 'Erro ao buscar estatísticas')
+    } catch {
+      return this.serverError(res, 'Erro ao buscar estatisticas')
     }
   }
 
@@ -214,19 +199,12 @@ export class ServicesController extends BaseController {
 
     try {
       const db = req.db
-      if (!db) return this.unauthorized(res, 'Não autenticado')
+      if (!db) return this.unauthorized(res, 'Nao autenticado')
       await this.servicesService.promoteUrgent(db, id as string, req.user.id)
       return this.success(res, { success: true })
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Erro ao promover urgência'
-      if (
-        message.includes('não encontrada') ||
-        message.includes('permissão') ||
-        message.includes('demandas abertas')
-      ) {
-        return this.error(res, message, 400)
-      }
-      return this.serverError(res, message)
+      const message = error instanceof Error ? error.message : 'Erro ao promover urgencia'
+      return this.error(res, message, 400)
     }
   }
 
@@ -237,30 +215,23 @@ export class ServicesController extends BaseController {
 
     const parsedParams = requestIdParamsSchema.safeParse(req.params)
     if (!parsedParams.success) {
-      return this.error(res, 'Parâmetros inválidos')
+      return this.error(res, 'Parametros invalidos')
     }
 
     const parsedBody = updateRequestSchema.safeParse(req.body)
     if (!parsedBody.success) {
-      return this.error(res, 'Dados inválidos')
+      return this.error(res, 'Dados invalidos')
     }
 
     try {
       const db = req.db
-      if (!db) return this.unauthorized(res, 'Não autenticado')
-      const updated = await this.servicesService.updateRequest(
-        db,
-        req.user.id,
-        parsedParams.data.id,
-        parsedBody.data,
-      )
+      if (!db) return this.unauthorized(res, 'Nao autenticado')
+      const updated = await this.servicesService.updateRequest(db, req.user.id, parsedParams.data.id, parsedBody.data)
       return this.success(res, { request: updated })
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro ao atualizar demanda'
-      if (message.includes('permission') || message.includes('permissão')) {
-        return this.forbidden(res, message)
-      }
       return this.serverError(res, message)
     }
   }
 }
+

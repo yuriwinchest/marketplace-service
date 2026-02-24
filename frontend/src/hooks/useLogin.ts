@@ -1,13 +1,10 @@
 
 import { useState } from 'react'
-import type { User } from '../types'
+import { useAuthStore } from '../store/useAuthStore'
+import { apiRequest } from '../services/api'
 
-interface UseLoginProps {
-    apiBaseUrl: string
-    onLoginSuccess: (data: { token: string; refreshToken: string; user: User } | { data: { token: string; refreshToken: string; user: User } }) => void
-}
-
-export function useLogin({ apiBaseUrl, onLoginSuccess }: UseLoginProps) {
+export function useLogin() {
+    const { setAuth } = useAuthStore()
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [role, setRole] = useState<'client' | 'professional'>('client')
@@ -18,19 +15,20 @@ export function useLogin({ apiBaseUrl, onLoginSuccess }: UseLoginProps) {
         setError(null)
         setLoading(true)
         try {
-            const res = await fetch(`${apiBaseUrl}/api/auth/login`, {
+            const data = await apiRequest<any>('/api/auth/login', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, password, role }),
             })
-            const data = await res.json()
-            if (!res.ok) {
-                setError(data.error ?? 'E-mail ou senha inválidos')
-                return
-            }
-            onLoginSuccess(data)
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Erro desconhecido')
+
+            const actualData = data.data || data
+            setAuth({
+                state: 'authenticated',
+                token: actualData.token,
+                refreshToken: actualData.refreshToken ?? null,
+                user: actualData.user
+            })
+        } catch (err: any) {
+            setError(err.message || 'E-mail ou senha inválidos')
         } finally {
             setLoading(false)
         }

@@ -23,8 +23,8 @@ export class AuthService {
   constructor(private repository: AuthRepository) {}
 
   async register(input: RegisterInput): Promise<{ id: string; pendingConfirmation?: boolean }> {
-    const avatarUrl = input.avatarUrl
-    if (!avatarUrl) throw new Error('Foto é obrigatória')
+    const avatarUrl = (input as any).avatarUrl as string | undefined
+    if (!avatarUrl) throw new Error('Envie uma foto como anexo (arquivo)')
 
     // 1) Create Supabase Auth user
     const { data: signUpData, error: signUpError } = await supabaseAnon.auth.signUp({

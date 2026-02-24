@@ -1,4 +1,4 @@
-import { supabaseAnon } from '../../shared/database/supabaseClient.js'
+import { pool } from '../../shared/database/connection.js'
 
 export interface CategoryEntity {
   id: string
@@ -8,19 +8,15 @@ export interface CategoryEntity {
 export class CategoriesRepository {
   async findAll(): Promise<CategoryEntity[]> {
     try {
-      const { data, error } = await supabaseAnon
-        .from('categories')
-        .select('id, name')
-        .order('name', { ascending: true })
+      // Usando conexão direta via pg (pool) ao invés da API REST do Supabase
+      // para evitar problemas com chaves de API ausentes/incorretas.
+      const { rows } = await pool.query<CategoryEntity>(
+        'SELECT id, name FROM categories ORDER BY name ASC'
+      )
 
-      if (error) {
-        console.warn('⚠️  Erro ao buscar categorias via Supabase:', error.message)
-        return this.getMockedCategories()
-      }
-
-      return data || []
+      return rows
     } catch (error) {
-      console.warn('⚠️  Falha ao conectar no Supabase. Usando dados mockados.', error)
+      console.warn('⚠️  Falha ao buscar categorias no banco de dados. Usando dados mockados.', error)
       return this.getMockedCategories()
     }
   }

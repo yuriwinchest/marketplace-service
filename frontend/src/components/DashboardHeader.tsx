@@ -1,32 +1,43 @@
 
-import type { AuthState, View } from '../types'
+import { useNavigate } from 'react-router-dom'
+import { useAuthStore } from '../store/useAuthStore'
 
-interface DashboardHeaderProps {
-    auth: Extract<AuthState, { state: 'authenticated' }>
-    setView: (view: View) => void
-    getUserName: () => string
-}
+export function DashboardHeader({ getUserName }: { getUserName: () => string }) {
+    const { auth } = useAuthStore()
+    const navigate = useNavigate()
 
-export function DashboardHeader({ auth, setView, getUserName }: DashboardHeaderProps) {
+    if (auth.state !== 'authenticated') return null
+
     return (
-        <div className="dashboardHeader">
-            <div>
-                <h1>Ola, {getUserName()}!</h1>
-                <p className="subtitle">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-6 bg-forest-800 border border-white/5 p-8 rounded-[40px] shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-emerald-500/5 to-transparent pointer-events-none"></div>
+
+            <div className="relative z-10">
+                <h1 className="text-4xl font-black text-white tracking-tight">Olá, {getUserName()}! 👋</h1>
+                <p className="text-gray-400 mt-2 font-medium">
                     {auth.user.role === 'client'
-                        ? 'Gerencie seus projetos e encontre profissionais'
-                        : 'Encontre oportunidades e envie propostas'}
+                        ? 'Tudo pronto para encontrar o talento ideal hoje?'
+                        : 'Novas oportunidades aguardam por você.'}
                 </p>
             </div>
-            {auth.user.role === 'client' ? (
-                <button className="btnPrimary" onClick={() => setView('create-service')}>
-                    + Publicar Servico
-                </button>
-            ) : (
-                <button className="btnPrimary" onClick={() => setView('services')}>
-                    Buscar Servicos
-                </button>
-            )}
+
+            <div className="relative z-10">
+                {auth.user.role === 'client' ? (
+                    <button
+                        className="bg-emerald-500 hover:bg-emerald-600 text-forest-900 px-8 py-4 rounded-2xl font-black text-lg transition-all shadow-xl shadow-emerald-500/20 active:scale-95"
+                        onClick={() => navigate('/criar-servico')}
+                    >
+                        + Criar Novo Projeto
+                    </button>
+                ) : (
+                    <button
+                        className="bg-emerald-500 hover:bg-emerald-600 text-forest-900 px-8 py-4 rounded-2xl font-black text-lg transition-all shadow-xl shadow-emerald-500/20 active:scale-95"
+                        onClick={() => navigate('/servicos')}
+                    >
+                        🔍 Buscar Contratos
+                    </button>
+                )}
+            </div>
         </div>
     )
 }

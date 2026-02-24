@@ -1,6 +1,9 @@
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { Service, View, AuthState, ProposalForClient } from '../types'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
+import { useAuthStore } from '../store/useAuthStore'
+import { apiRequest } from '../services/api'
+import type { Service, ProposalForClient } from '../types'
 import { formatCurrency, statusClass, statusLabel, formatTimeAgo, formatLocation, urgencyClass, urgencyLabel } from '../utils/formatters'
 import { API_BASE_URL } from '../config'
 import { useProposal } from '../hooks/useProposal'
@@ -8,26 +11,17 @@ import { useServiceStats } from '../hooks/useServiceStats'
 import { ProposalForm } from '../components/ProposalForm'
 import { ServiceStats } from '../components/ServiceStats'
 
-function extractError(json: unknown): string | undefined {
-    if (!json || typeof json !== 'object') return undefined
-    const obj = json as Record<string, unknown>
-    return typeof obj.error === 'string' ? obj.error : undefined
-}
-
 function extractProposalItems(json: unknown): ProposalForClient[] {
     if (!json || typeof json !== 'object') return []
     const obj = json as Record<string, unknown>
-
     const rootItems = obj.items
     if (Array.isArray(rootItems)) return rootItems as ProposalForClient[]
-
     const data = obj.data
     if (data && typeof data === 'object') {
         const dataObj = data as Record<string, unknown>
         const dataItems = dataObj.items
         if (Array.isArray(dataItems)) return dataItems as ProposalForClient[]
     }
-
     return []
 }
 
@@ -39,18 +33,14 @@ function extractUpdatedRequest(json: unknown): Service | null {
     return req && typeof req === 'object' ? (req as Service) : null
 }
 
-interface ServiceDetailPageProps {
-    serviceId: string
-    initialService?: Service | null
-    auth: Extract<AuthState, { state: 'authenticated' }> | { state: 'anonymous' }
-    apiFetch: (path: string, init?: RequestInit) => Promise<Response>
-    setView: (view: View) => void
-}
+export function ServiceDetailPage() {
+    const { id: serviceId } = useParams<{ id: string }>()
+    const navigate = useNavigate()
+    const { auth } = useAuthStore()
 
-export function ServiceDetailPage({ serviceId, initialService, auth, apiFetch, setView }: ServiceDetailPageProps) {
     const [showProposalForm, setShowProposalForm] = useState(false)
     const [editingRequest, setEditingRequest] = useState(false)
-    const [service, setService] = useState<Service | null>(() => initialService ?? null)
+    const [service, setService] = useState<Service | null>(null)
     const [loading, setLoading] = useState(false)
 
     const [editTitle, setEditTitle] = useState('')
@@ -61,7 +51,6 @@ export function ServiceDetailPage({ serviceId, initialService, auth, apiFetch, s
 
     const [receivedProposals, setReceivedProposals] = useState<ProposalForClient[]>([])
     const [receivedLoading, setReceivedLoading] = useState(false)
-    const [receivedError, setReceivedError] = useState('')
     const [flash, setFlash] = useState<{ kind: 'success' | 'error'; text: string } | null>(null)
     const flashTimerRef = useRef<number | null>(null)
 
@@ -72,29 +61,16 @@ export function ServiceDetailPage({ serviceId, initialService, auth, apiFetch, s
     }, [])
 
     useEffect(() => {
-        return () => {
-            if (flashTimerRef.current) window.clearTimeout(flashTimerRef.current)
-        }
-    }, [])
-
-    useEffect(() => {
-        setService(initialService ?? null)
-    }, [initialService])
-
-    useEffect(() => {
-        if (service) return
+        if (!serviceId) return
         setLoading(true)
-        apiFetch(`/api/requests/${serviceId}`, { method: 'GET' })
-            .then(async (res) => {
-                if (!res.ok) return
-                const json = await res.json()
-                const data = json.data ?? json
-                const req = data.request as Service | undefined
+        apiRequest<any>(`/api/requests/${serviceId}`)
+            .then((data) => {
+                const req = (data.request || data.data?.request) as Service | undefined
                 if (req) setService(req)
             })
+            .catch(() => { })
             .finally(() => setLoading(false))
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [serviceId, service])
+    }, [serviceId])
 
     const isAuthed = auth.state === 'authenticated'
     const isProfessional = isAuthed && auth.user.role === 'professional'
@@ -108,40 +84,22 @@ export function ServiceDetailPage({ serviceId, initialService, auth, apiFetch, s
         setEditBudgetMax(service.budget_max ? String(service.budget_max) : '')
         setEditUrgency((service.urgency as 'low' | 'medium' | 'high') || 'medium')
         setEditingRequest(false)
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [service?.id])
 
-    const backView: View = useMemo(() => {
-        if (isProfessional) return 'services'
-        if (isClient) return 'my-services'
-        return 'public-services'
-    }, [isClient, isProfessional])
-
     const loadReceived = useCallback(async () => {
-        if (!isClient) return
+        if (!isClient || !serviceId) return
         setReceivedLoading(true)
-        setReceivedError('')
         try {
-            const res = await apiFetch(`/api/proposals/service-request/${serviceId}`, { method: 'GET' })
-            if (!res.ok) {
-                if (res.status === 403) {
-                    setReceivedProposals([])
-                    return
-                }
-                const json: unknown = await res.json().catch(() => undefined)
-                const msg = extractError(json) || `Erro ao carregar propostas (HTTP ${res.status})`
-                setReceivedError(msg)
-                return
-            }
-            const json: unknown = await res.json()
-            const items = extractProposalItems(json)
+            const data = await apiRequest<any>(`/api/proposals/service-request/${serviceId}`)
+            const items = extractProposalItems(data)
             setReceivedProposals(items)
-        } catch {
-            setReceivedError('Erro de conexão ao carregar propostas')
+        } catch (e: any) {
+            if (e.status === 403) setReceivedProposals([])
+            else showFlash('error', e.message || 'Erro ao carregar propostas')
         } finally {
             setReceivedLoading(false)
         }
-    }, [apiFetch, isClient, serviceId])
+    }, [isClient, serviceId, showFlash])
 
     useEffect(() => {
         void loadReceived()
@@ -154,61 +112,72 @@ export function ServiceDetailPage({ serviceId, initialService, auth, apiFetch, s
         sending,
         financials
     } = useProposal({
-        serviceId,
-        apiFetch,
+        serviceId: serviceId || '',
+        apiFetch: async (path, init) => {
+            const res = await apiRequest<any>(path, init)
+            return new Response(JSON.stringify(res))
+        },
         onSuccess: () => {
-            showFlash('success', 'Proposta enviada com sucesso')
+            showFlash('success', 'Sua proposta foi enviada com sucesso! Aguarde o retorno do cliente.')
             setShowProposalForm(false)
         },
         onError: (msg) => showFlash('error', msg)
     })
 
-    const stats = useServiceStats(serviceId, auth.state === 'authenticated', apiFetch)
+    const stats = useServiceStats(serviceId || '', isAuthed, async (path, init) => {
+        const res = await apiRequest<any>(path, init)
+        return new Response(JSON.stringify(res))
+    })
 
     const handleAccept = async (proposalId: string) => {
-        const res = await apiFetch(`/api/proposals/${proposalId}/accept`, { method: 'POST' })
-        if (!res.ok) {
-            const json: unknown = await res.json().catch(() => undefined)
-            showFlash('error', extractError(json) || 'Erro ao aceitar proposta')
-            return
+        try {
+            await apiRequest(`/api/proposals/${proposalId}/accept`, { method: 'POST' })
+            await loadReceived()
+            showFlash('success', 'Proposta aceita com sucesso!')
+        } catch (e: any) {
+            showFlash('error', e.message || 'Erro ao aceitar proposta')
         }
-        await loadReceived()
-        showFlash('success', 'Proposta aceita')
     }
 
     const handleReject = async (proposalId: string) => {
-        const res = await apiFetch(`/api/proposals/${proposalId}/reject`, { method: 'POST' })
-        if (!res.ok) {
-            const json: unknown = await res.json().catch(() => undefined)
-            showFlash('error', extractError(json) || 'Erro ao rejeitar proposta')
-            return
+        try {
+            await apiRequest(`/api/proposals/${proposalId}/reject`, { method: 'POST' })
+            await loadReceived()
+            showFlash('success', 'Proposta recusada.')
+        } catch (e: any) {
+            showFlash('error', e.message || 'Erro ao rejeitar proposta')
         }
-        await loadReceived()
-        showFlash('success', 'Proposta rejeitada')
     }
 
     if (loading && !service) {
         return (
-            <div className="serviceDetailPage">
-                <div className="loading">Carregando...</div>
+            <div className="flex items-center justify-center min-h-[60vh]">
+                <div className="animate-spin w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full shadow-xl shadow-emerald-500/20"></div>
             </div>
         )
     }
 
     if (!service) {
         return (
-            <div className="serviceDetailPage">
-                <div className="emptyState">
-                    <h3>Demanda não encontrada</h3>
-                    <p>Talvez ela tenha sido removida ou já foi fechada.</p>
-                    <button className="btnSecondary" onClick={() => setView(backView)}>Voltar</button>
+            <div className="max-w-4xl mx-auto px-4 py-32 text-center">
+                <div className="bg-forest-800 p-16 rounded-[48px] border border-white/5 shadow-2xl relative overflow-hidden">
+                    <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-red-500/5 to-transparent pointer-events-none"></div>
+                    <div className="text-7xl mb-8">🚫</div>
+                    <h3 className="text-3xl font-black text-white mb-4">Projeto Indisponível</h3>
+                    <p className="text-gray-400 mb-10 text-lg font-medium">Esta demanda pode ter sido removida, cancelada ou já está com um profissional.</p>
+                    <button
+                        className="bg-white/5 hover:bg-white/10 text-white px-12 py-5 rounded-2xl font-black transition-all border border-white/10"
+                        onClick={() => navigate(-1)}
+                    >
+                        Explorar Outros Projetos
+                    </button>
                 </div>
             </div>
         )
     }
 
     const svc = service
-    const canEditRequest = isClient && svc.status !== 'closed' && svc.status !== 'cancelled'
+    const canEditRequest = isClient && svc.user_id === auth.user.id && svc.status !== 'closed' && svc.status !== 'cancelled'
 
     const saveRequestEdit = async () => {
         const payload: Record<string, unknown> = {
@@ -219,203 +188,232 @@ export function ServiceDetailPage({ serviceId, initialService, auth, apiFetch, s
         if (editBudgetMin.trim() !== '') payload.budgetMin = Number(editBudgetMin)
         if (editBudgetMax.trim() !== '') payload.budgetMax = Number(editBudgetMax)
 
-        const res = await apiFetch(`/api/requests/${svc.id}`, { method: 'PUT', body: JSON.stringify(payload) })
-        if (!res.ok) {
-            const json: unknown = await res.json().catch(() => undefined)
-            showFlash('error', extractError(json) || `Erro ao salvar (HTTP ${res.status})`)
-            return
+        try {
+            const data = await apiRequest<any>(`/api/requests/${svc.id}`, { method: 'PUT', body: JSON.stringify(payload) })
+            const updated = extractUpdatedRequest(data)
+            if (updated) setService(updated)
+            setEditingRequest(false)
+            showFlash('success', 'As alterações foram salvas.')
+        } catch (e: any) {
+            showFlash('error', e.message || 'Falha ao salvar alterações')
         }
-        const json: unknown = await res.json()
-        const updated = extractUpdatedRequest(json)
-        if (updated) setService(updated)
-        setEditingRequest(false)
-        showFlash('success', 'Demanda atualizada')
     }
 
     return (
-        <div className="serviceDetailPage">
-            <div style={{ marginBottom: '1rem' }}>
+        <div className="serviceDetailPage max-w-7xl mx-auto px-4 py-12 space-y-10">
+            {/* Header Actions */}
+            <div className="flex items-center justify-between px-2">
                 <button
-                    className="btnSecondary"
-                    onClick={() => setView(backView)}
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}
+                    className="group text-gray-500 hover:text-white flex items-center gap-3 text-sm font-bold transition-all"
+                    onClick={() => navigate(-1)}
                 >
-                    ← Voltar para lista
+                    <span className="p-2 bg-white/5 rounded-xl group-hover:bg-emerald-500/20 group-hover:text-emerald-400 transition-all">←</span>
+                    Voltar aos Resultados
                 </button>
+                {canEditRequest && (
+                    <button
+                        className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all border border-emerald-500/10 flex items-center gap-2"
+                        onClick={() => setEditingRequest(!editingRequest)}
+                    >
+                        {editingRequest ? '❌ CANCELAR EDIÇÃO' : '✏️ EDITAR PROJETO'}
+                    </button>
+                )}
             </div>
 
-            <div className="serviceDetailHeader">
-                <div className="serviceDetailTitle">
-                    <h1>{svc.title}</h1>
-                    <span className={`badge ${statusClass(svc.status)}`}>
-                        {statusLabel(svc.status)}
-                    </span>
-                </div>
-                <div className="serviceDetailMeta">
-                    <span>Publicado {formatTimeAgo(svc.created_at)}</span>
-                    <span className="separator">•</span>
-                    <span>{formatLocation(svc)}</span>
+            {/* Main Title Section */}
+            <div className="relative bg-forest-800 border border-white/5 p-10 md:p-16 rounded-[48px] shadow-2xl overflow-hidden">
+                <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-emerald-500/5 rounded-full blur-[120px] -z-10"></div>
+
+                <div className="space-y-6 relative z-10">
+                    <div className="flex flex-wrap items-center gap-3">
+                        <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${statusClass(svc.status)}`}>
+                            {statusLabel(svc.status)}
+                        </span>
+                        <span className="bg-white/5 text-gray-400 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-white/5">
+                            {svc.category_name || 'Geral'}
+                        </span>
+                        <span className="text-gray-600 text-[10px] font-black uppercase tracking-widest ml-auto">
+                            Postado {formatTimeAgo(svc.created_at)}
+                        </span>
+                    </div>
+
+                    <h1 className="text-4xl md:text-6xl font-black text-white leading-tight tracking-tight max-w-4xl">
+                        {svc.title}
+                    </h1>
+
+                    <div className="flex flex-wrap items-center gap-6 pt-4">
+                        <div className="flex items-center gap-3">
+                            <span className="text-2xl">📍</span>
+                            <div>
+                                <div className="text-xs font-black text-gray-500 uppercase tracking-widest">Localização</div>
+                                <div className="text-white font-bold">{formatLocation(svc)}</div>
+                            </div>
+                        </div>
+                        <div className="w-px h-10 bg-white/5 hidden md:block"></div>
+                        <div className="flex items-center gap-3">
+                            <span className="text-2xl">⏳</span>
+                            <div>
+                                <div className="text-xs font-black text-gray-500 uppercase tracking-widest">Urgência</div>
+                                <div className={`font-black ${urgencyClass(svc.urgency).includes('high') ? 'text-red-400' : 'text-emerald-400'}`}>
+                                    {urgencyLabel(svc.urgency)}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <div className="serviceDetailContent">
-                <div className="serviceMainCol">
-                    <div className="card">
-                        <div className="cardHeader">
-                            <h2>Descrição do Projeto</h2>
-                            {canEditRequest && (
-                                <button
-                                    className="btnSecondary btnSm"
-                                    onClick={() => setEditingRequest((v) => !v)}
-                                >
-                                    {editingRequest ? 'Cancelar' : 'Editar'}
-                                </button>
-                            )}
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-12 items-start">
+                <div className="space-y-12">
+                    {/* Description Card */}
+                    <div className="bg-forest-800 border border-white/5 rounded-[40px] p-10 md:p-16 shadow-xl space-y-10">
+                        <div className="flex items-center justify-between border-b border-white/5 pb-8">
+                            <h2 className="text-2xl font-black text-white flex items-center gap-4">
+                                <span className="p-3 bg-emerald-500/10 rounded-2xl text-xl">📄</span>
+                                Detalhes da Demanda
+                            </h2>
                         </div>
 
                         {editingRequest ? (
-                            <div style={{ marginTop: '0.75rem' }}>
-                                <div className="formGroup">
-                                    <label>Título</label>
-                                    <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
+                            <div className="space-y-8">
+                                <div className="formGroup space-y-3">
+                                    <label className="text-xs font-black text-gray-500 uppercase tracking-widest ml-1">Título do Projeto</label>
+                                    <input
+                                        className="w-full bg-forest-900 border border-white/10 rounded-2xl px-6 py-4 text-white focus:outline-none focus:border-emerald-500/50 transition-all font-medium"
+                                        value={editTitle}
+                                        onChange={(e) => setEditTitle(e.target.value)}
+                                    />
                                 </div>
-                                <div className="formGroup">
-                                    <label>Descrição</label>
-                                    <textarea rows={6} value={editDescription} onChange={(e) => setEditDescription(e.target.value)} />
+                                <div className="formGroup space-y-3">
+                                    <label className="text-xs font-black text-gray-500 uppercase tracking-widest ml-1">Descrição Completa</label>
+                                    <textarea
+                                        className="w-full bg-forest-900 border border-white/10 rounded-2xl px-6 py-4 text-white focus:outline-none focus:border-emerald-500/50 transition-all font-medium resize-none min-h-[300px]"
+                                        value={editDescription}
+                                        onChange={(e) => setEditDescription(e.target.value)}
+                                    />
                                 </div>
-                                <div className="formRow" style={{ marginTop: '0.75rem' }}>
-                                    <div className="formGroup">
-                                        <label>Orçamento mín.</label>
+                                <div className="grid grid-cols-2 gap-8">
+                                    <div className="formGroup space-y-3">
+                                        <label className="text-xs font-black text-gray-500 uppercase tracking-widest ml-1">Orç. Mínimo (R$)</label>
                                         <input
-                                            inputMode="numeric"
+                                            className="w-full bg-forest-900 border border-white/10 rounded-2xl px-6 py-4 text-white focus:outline-none focus:border-emerald-500/50 transition-all font-medium"
                                             value={editBudgetMin}
                                             onChange={(e) => setEditBudgetMin(e.target.value)}
-                                            placeholder="Ex.: 300"
                                         />
                                     </div>
-                                    <div className="formGroup">
-                                        <label>Orçamento máx.</label>
+                                    <div className="formGroup space-y-3">
+                                        <label className="text-xs font-black text-gray-500 uppercase tracking-widest ml-1">Orç. Máximo (R$)</label>
                                         <input
-                                            inputMode="numeric"
+                                            className="w-full bg-forest-900 border border-white/10 rounded-2xl px-6 py-4 text-white focus:outline-none focus:border-emerald-500/50 transition-all font-medium"
                                             value={editBudgetMax}
                                             onChange={(e) => setEditBudgetMax(e.target.value)}
-                                            placeholder="Ex.: 2999"
                                         />
                                     </div>
                                 </div>
-                                <div className="formGroup" style={{ marginTop: '0.75rem' }}>
-                                    <label>Urgência</label>
-                                    <select
-                                        value={editUrgency}
-                                        onChange={(e) => {
-                                            const v = e.target.value
-                                            if (v === 'low' || v === 'medium' || v === 'high') setEditUrgency(v)
-                                        }}
-                                    >
-                                        <option value="low">Baixa</option>
-                                        <option value="medium">Média</option>
-                                        <option value="high">Urgente</option>
-                                    </select>
-                                </div>
-                                <div className="formActions">
-                                    <button className="btnSecondary" onClick={() => setEditingRequest(false)}>Voltar</button>
-                                    <button className="btnPrimary" onClick={() => void saveRequestEdit()}>Salvar</button>
-                                </div>
+                                <button
+                                    className="w-full bg-emerald-500 hover:bg-emerald-600 text-forest-900 py-6 rounded-[24px] font-black text-lg transition-all shadow-2xl shadow-emerald-500/20 active:scale-95"
+                                    onClick={saveRequestEdit}
+                                >
+                                    Atualizar Publicação
+                                </button>
                             </div>
                         ) : (
-                            <div className="serviceDescription">
-                                {svc.description || 'Sem descrição detalhada.'}
+                            <div className="text-gray-300 text-lg leading-relaxed font-medium bg-forest-900/50 p-10 rounded-[32px] border border-white/5 italic whitespace-pre-wrap">
+                                "{svc.description || 'Nenhum detalhe adicional fornecido pelo contratante.'}"
                             </div>
                         )}
                     </div>
 
-                    {isClient && (
-                        <div className="card" style={{ marginTop: '1rem' }}>
-                            <div className="cardHeader">
-                                <h2>Propostas Recebidas</h2>
-                                <button className="btnSecondary btnSm" onClick={() => void loadReceived()} disabled={receivedLoading}>
-                                    Atualizar
+                    {/* Proposals Section (Only for Client) */}
+                    {isClient && svc.user_id === auth.user.id && (
+                        <div className="space-y-8">
+                            <div className="flex items-center justify-between">
+                                <h2 className="text-3xl font-black text-white">Candidatos</h2>
+                                <button
+                                    className="text-emerald-500 hover:text-emerald-400 font-black text-xs uppercase tracking-widest flex items-center gap-2 group"
+                                    onClick={loadReceived}
+                                    disabled={receivedLoading}
+                                >
+                                    <span className={receivedLoading ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-700'}>🔄</span>
+                                    Sincronizar
                                 </button>
                             </div>
 
-                            {flash && (
-                                <div className={flash.kind === 'success' ? 'successBox' : 'errorBox'}>
-                                    {flash.text}
-                                </div>
-                            )}
-
                             {receivedLoading ? (
-                                <div className="loading">Carregando propostas...</div>
-                            ) : receivedError ? (
-                                <div className="errorBox">{receivedError}</div>
+                                <div className="space-y-6">
+                                    {[1, 2].map(i => <div key={i} className="h-64 bg-forest-800/20 rounded-[40px] animate-pulse"></div>)}
+                                </div>
                             ) : receivedProposals.length === 0 ? (
-                                <div className="emptyState sm">
-                                    <div className="emptyIcon">📨</div>
-                                    <h3>Nenhuma proposta ainda</h3>
-                                    <p>Quando um freelancer enviar proposta, ela vai aparecer aqui.</p>
+                                <div className="bg-forest-800 border border-white/5 border-dashed rounded-[48px] p-20 text-center space-y-6">
+                                    <div className="text-6xl mb-4 opacity-20">📨</div>
+                                    <h3 className="text-2xl font-black text-white">Ninguém se interessou ainda?</h3>
+                                    <p className="text-gray-500 font-medium max-w-sm mx-auto">Logo profissionais qualificados entrarão em contato. Verifique se o seu orçamento está atraente.</p>
                                 </div>
                             ) : (
-                                <div className="proposalsList">
+                                <div className="space-y-8">
                                     {receivedProposals.map((p) => {
                                         const prof = p.professional?.user
                                         const profProfile = p.professional?.profile
-                                        const profName = prof?.name || 'Profissional'
-                                        const profLoc = profProfile?.is_remote
-                                            ? 'Remoto'
-                                            : (profProfile?.city && profProfile?.uf ? `${profProfile.city}/${profProfile.uf}` : (profProfile?.uf || 'Brasil'))
-
                                         return (
-                                            <div key={p.id} className="proposalCard">
-                                                <div className="proposalHeader">
-                                                    <div className="proposalFreelancer">
-                                                        <div className="freelancerAvatar" style={{ overflow: 'hidden' }}>
+                                            <div key={p.id} className="group bg-forest-800 border border-white/5 rounded-[48px] p-10 md:p-14 shadow-xl hover:border-emerald-500/30 transition-all">
+                                                <div className="flex flex-col md:flex-row gap-10 items-start">
+                                                    <div className="flex items-center gap-6">
+                                                        <div className="relative">
                                                             {prof?.avatar_url ? (
                                                                 <img
-                                                                    src={prof.avatar_url.startsWith('/') ? `${API_BASE_URL}${prof.avatar_url}` : prof.avatar_url}
+                                                                    className="w-24 h-24 rounded-[32px] object-cover border-4 border-white/5 shadow-2xl"
+                                                                    src={`${API_BASE_URL}${prof.avatar_url}`}
                                                                     alt=""
-                                                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                                                 />
                                                             ) : (
-                                                                <span>{profName.charAt(0).toUpperCase()}</span>
+                                                                <div className="w-24 h-24 rounded-[32px] bg-emerald-500/20 flex items-center justify-center text-3xl text-emerald-400 font-black border-4 border-white/5">
+                                                                    {prof?.name?.charAt(0) || 'P'}
+                                                                </div>
                                                             )}
+                                                            <div className="absolute -bottom-2 -right-2 bg-emerald-500 text-forest-900 p-2 rounded-xl text-[8px] font-black uppercase border-4 border-forest-800 shadow-xl">Verificado</div>
                                                         </div>
                                                         <div>
-                                                            <div className="freelancerName">{profName}</div>
-                                                            <div className="freelancerRating" style={{ color: 'var(--text-muted)' }}>{profLoc}</div>
+                                                            <div className="text-2xl font-black text-white mb-1">{prof?.name || 'Profissional'}</div>
+                                                            <div className="text-emerald-500/70 text-sm font-bold flex items-center gap-2">
+                                                                ⭐️ 5.0 • {profProfile?.city}/{profProfile?.uf || 'BR'}
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                    <div className="proposalPrice">
-                                                        {Number.isFinite(Number(p.value)) ? formatCurrency(Number(p.value)) : 'A combinar'}
+                                                    <div className="md:ml-auto text-left md:text-right space-y-1">
+                                                        <div className="text-gray-500 text-[10px] font-black uppercase tracking-widest">Valor da Proposta</div>
+                                                        <div className="text-4xl font-black text-white">{formatCurrency(Number(p.value))}</div>
+                                                        <div className="text-emerald-400 text-xs font-bold uppercase">Em {p.estimated_days} dias úteis</div>
                                                     </div>
                                                 </div>
 
-                                                <div className="proposalMessage">
-                                                    {p.description}
+                                                <div className="my-10 text-gray-300 font-medium leading-relaxed bg-forest-900/50 p-8 rounded-[32px] border border-white/5 italic">
+                                                    "{p.description}"
                                                 </div>
 
-                                                {profProfile?.skills && profProfile.skills.length > 0 && (
-                                                    <div className="skillsTags" style={{ marginBottom: '0.75rem' }}>
-                                                        {profProfile.skills.slice(0, 8).map((s) => (
-                                                            <span key={s} className="skillTag">{s}</span>
-                                                        ))}
+                                                <div className="flex flex-wrap items-center justify-between gap-6 pt-10 border-t border-white/5">
+                                                    <div className="flex items-center gap-3">
+                                                        <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${statusClass(p.status)}`}>
+                                                            Status: {statusLabel(p.status)}
+                                                        </span>
                                                     </div>
-                                                )}
 
-                                                <div className="proposalFooter">
-                                                    <span>Prazo: {p.estimated_days ?? 'A combinar'} dias</span>
-                                                    <span>Status: <span className={`badge ${statusClass(p.status)}`}>{statusLabel(p.status)}</span></span>
+                                                    {p.status === 'pending' && (
+                                                        <div className="flex items-center gap-4 w-full md:w-auto">
+                                                            <button
+                                                                className="flex-1 md:flex-none border border-white/10 text-gray-400 hover:text-white hover:bg-white/5 px-8 py-4 rounded-2xl font-black text-sm transition-all"
+                                                                onClick={() => handleReject(p.id)}
+                                                            >
+                                                                Recusar
+                                                            </button>
+                                                            <button
+                                                                className="flex-[2] md:flex-none bg-emerald-500 hover:bg-emerald-600 text-forest-900 px-12 py-4 rounded-2xl font-black text-sm transition-all shadow-xl shadow-emerald-500/20 active:scale-95"
+                                                                onClick={() => handleAccept(p.id)}
+                                                            >
+                                                                Aceitar Proposta
+                                                            </button>
+                                                        </div>
+                                                    )}
                                                 </div>
-
-                                                {p.status === 'pending' && (
-                                                    <div className="proposalActions" style={{ marginTop: '1rem' }}>
-                                                        <button className="btnSuccess" onClick={() => void handleAccept(p.id)}>
-                                                            Aceitar
-                                                        </button>
-                                                        <button className="btnSecondary" onClick={() => void handleReject(p.id)}>
-                                                            Rejeitar
-                                                        </button>
-                                                    </div>
-                                                )}
                                             </div>
                                         )
                                     })}
@@ -424,71 +422,97 @@ export function ServiceDetailPage({ serviceId, initialService, auth, apiFetch, s
                         </div>
                     )}
 
+                    {/* Submit Proposal Form (Professional only) */}
                     {showProposalForm && isProfessional && (
-                        <ProposalForm
-                            proposal={proposal}
-                            updateProposal={updateProposal}
-                            submitProposal={submitProposal}
-                            sending={sending}
-                            financials={financials}
-                            onCancel={() => setShowProposalForm(false)}
-                        />
+                        <div id="proposal-form-scroll">
+                            <ProposalForm
+                                proposal={proposal}
+                                updateProposal={updateProposal}
+                                submitProposal={submitProposal}
+                                sending={sending}
+                                financials={financials}
+                                onCancel={() => setShowProposalForm(false)}
+                            />
+                        </div>
                     )}
                 </div>
 
-                <div className="serviceSideCol">
-                    <div className="card">
-                        <div className="budgetBox">
-                            <span className="label">Orçamento estimado</span>
-                            <div className="value">
+                {/* Sidebar */}
+                <aside className="lg:sticky lg:top-24 space-y-8">
+                    {/* Budget Highlight */}
+                    <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-[40px] p-10 shadow-2xl shadow-emerald-500/20 text-forest-900 relative overflow-hidden group">
+                        <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/20 rounded-full blur-3xl transform group-hover:scale-150 transition-transform duration-700"></div>
+
+                        <div className="relative z-10 space-y-6">
+                            <div className="text-[10px] font-black uppercase tracking-[0.2em] opacity-70">Faixa de Orçamento</div>
+                            <div className="text-4xl font-black leading-none tracking-tighter">
                                 {svc.budget_min && svc.budget_max
-                                    ? `${formatCurrency(svc.budget_min)} - ${formatCurrency(svc.budget_max)}`
+                                    ? <>{formatCurrency(svc.budget_min)} <span className="opacity-40 text-2xl font-medium mx-1">-</span> {formatCurrency(svc.budget_max)}</>
                                     : 'A combinar'}
                             </div>
-                        </div>
-                        <div className="detailList">
-                            <div className="detailRow">
-                                <span className="label">Categoria</span>
-                                <span className="value">{svc.category_name || 'Geral'}</span>
-                            </div>
-                            <div className="detailRow">
-                                <span className="label">Urgência</span>
-                                <span className={`badge ${urgencyClass(svc.urgency)}`}>
-                                    {urgencyLabel(svc.urgency)}
-                                </span>
+
+                            <div className="pt-6 border-t border-forest-900/10 flex items-center justify-between">
+                                <span className="text-[10px] font-black uppercase tracking-widest opacity-60">Segurança de Pagamento</span>
+                                <span className="text-lg">🛡️</span>
                             </div>
                         </div>
+                    </div>
 
-                        {/* Proposal Stats Section */}
-                        {isProfessional && <ServiceStats stats={stats} />}
+                    {/* Project Stats (Only for Professional) */}
+                    {isProfessional && <ServiceStats stats={stats} />}
 
-                        {isProfessional && !showProposalForm && svc.status === 'open' && (
-                            <button
-                                className="btnPrimary btnFull"
-                                onClick={() => setShowProposalForm(true)}
-                                style={{ marginTop: '1rem' }}
-                            >
-                                Enviar Proposta
-                            </button>
-                        )}
+                    {/* Action Button */}
+                    {isProfessional && !showProposalForm && svc.status === 'open' && (
+                        <button
+                            className="w-full bg-forest-800 hover:bg-forest-700 text-white py-6 rounded-[32px] font-black text-xl transition-all shadow-2xl border border-white/5 active:scale-95 flex items-center justify-center gap-4 group"
+                            onClick={() => {
+                                setShowProposalForm(true)
+                                setTimeout(() => document.getElementById('proposal-form-scroll')?.scrollIntoView({ behavior: 'smooth' }), 100)
+                            }}
+                        >
+                            Candidatar-se Agora
+                            <span className="text-emerald-500 group-hover:translate-x-2 transition-transform">🚀</span>
+                        </button>
+                    )}
 
-                        {!isProfessional && svc.status === 'open' && (
-                            <div style={{ textAlign: 'center', marginTop: '1rem' }}>
-                                {auth.state === 'authenticated' ? (
-                                    <p className="text-sm text-gray-500">Apenas profissionais podem enviar propostas.</p>
-                                ) : (
+                    {!isProfessional && svc.status === 'open' && (
+                        <div className="bg-forest-800 border border-white/5 rounded-[40px] p-10 text-center space-y-6">
+                            <div className="text-4xl opacity-30">🔐</div>
+                            {auth.state === 'authenticated' ? (
+                                <p className="text-gray-400 font-medium leading-relaxed">Você está em modo Cliente. Publique uma vaga para contratar profissionais qualificados.</p>
+                            ) : (
+                                <>
+                                    <p className="text-gray-400 font-bold">Autentique-se como Profissional para acessar os detalhes financeiros e enviar propostas.</p>
                                     <button
-                                        className="btnPrimary btnFull"
-                                        onClick={() => setView('login')}
+                                        className="w-full bg-emerald-500 hover:bg-emerald-600 text-forest-900 py-4 rounded-xl font-black transition-all"
+                                        onClick={() => navigate('/login')}
                                     >
-                                        Fazer Login para Candidatar
+                                        ENTRAR
                                     </button>
-                                )}
-                            </div>
-                        )}
+                                </>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Safe Badge */}
+                    <div className="bg-forest-800/20 border border-white/5 p-8 rounded-[32px] flex items-center gap-5">
+                        <div className="text-2xl p-3 bg-white/5 rounded-2xl">🤝</div>
+                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest leading-relaxed">
+                            Contrate com segurança. O valor só é liberado após a conclusão do trabalho.
+                        </p>
+                    </div>
+                </aside>
+            </div>
+
+            {/* Flash Messages */}
+            {flash && (
+                <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-bottom-10 fade-in duration-500">
+                    <div className={`flex items-center gap-4 px-8 py-5 rounded-[24px] shadow-2xl backdrop-blur-xl border ${flash.kind === 'success' ? 'bg-emerald-500/90 text-forest-900 border-emerald-400' : 'bg-red-500/90 text-white border-red-400'}`}>
+                        <span className="text-2xl">{flash.kind === 'success' ? '✅' : '⚠️'}</span>
+                        <div className="font-black tracking-tight">{flash.text}</div>
                     </div>
                 </div>
-            </div>
+            )}
         </div>
     )
 }

@@ -13,28 +13,17 @@ export class RatingsController extends BaseController {
     const parsed = createRatingSchema.safeParse(req.body)
     if (!parsed.success) {
       const message = parsed.error.issues.map((issue) => issue.message).join(', ')
-      return this.error(res, `Dados inválidos: ${message}`)
+      return this.error(res, `Dados invalidos: ${message}`)
     }
 
     try {
       const db = req.db
-      if (!db) return this.unauthorized(res, 'Não autenticado')
+      if (!db) return this.unauthorized(res, 'Nao autenticado')
       const rating = await this.ratingsService.create(db, req.user.id, parsed.data)
       return this.created(res, { rating })
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Erro ao criar avaliação'
-
-      if (
-        message.includes('não encontrada') ||
-        message.includes('não pode avaliar') ||
-        message.includes('somente') ||
-        message.includes('já avaliou') ||
-        message.includes('não é um profissional')
-      ) {
-        return this.error(res, message, 400)
-      }
-
-      return this.serverError(res, message)
+      const message = error instanceof Error ? error.message : 'Erro ao criar avaliacao'
+      return this.error(res, message, 400)
     }
   }
 
@@ -44,10 +33,12 @@ export class RatingsController extends BaseController {
     const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 20
 
     try {
-      const result = await this.ratingsService.listByUserId(toUserId, { page, limit })
+      const db = req.db
+      if (!db) return this.unauthorized(res, 'Nao autenticado')
+      const result = await this.ratingsService.listByUserId(db, toUserId, { page, limit })
       return this.success(res, result)
-    } catch (error) {
-      return this.serverError(res, 'Erro ao listar avaliações')
+    } catch {
+      return this.serverError(res, 'Erro ao listar avaliacoes')
     }
   }
 }

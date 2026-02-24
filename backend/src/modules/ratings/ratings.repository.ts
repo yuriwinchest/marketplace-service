@@ -1,5 +1,4 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { supabaseAdmin } from '../../shared/database/supabaseClient.js'
 
 export interface RatingEntity {
   id: string
@@ -22,36 +21,36 @@ export interface RatingWithAuthor extends RatingEntity {
 }
 
 export class RatingsRepository {
-  async getRequestContext(requestId: string): Promise<RequestContextEntity | null> {
-    const { data, error } = await supabaseAdmin
+  async getRequestContext(db: SupabaseClient, requestId: string): Promise<RequestContextEntity | null> {
+    const { data, error } = await db
       .from('service_requests')
       .select('id, client_id, status')
       .eq('id', requestId)
       .single()
 
     if (error && error.code !== 'PGRST116') {
-      console.warn('Erro ao buscar contexto da demanda para avaliação:', error.message)
+      console.warn('Erro ao buscar contexto da demanda para avaliacao:', error.message)
     }
 
     return (data as RequestContextEntity) || null
   }
 
-  async getProfessionalIdByUserId(userId: string): Promise<string | null> {
-    const { data, error } = await supabaseAdmin
+  async getProfessionalIdByUserId(db: SupabaseClient, userId: string): Promise<string | null> {
+    const { data, error } = await db
       .from('professional_profiles')
       .select('id')
       .eq('user_id', userId)
       .single()
 
     if (error && error.code !== 'PGRST116') {
-      console.warn('Erro ao buscar perfil profissional para avaliação:', error.message)
+      console.warn('Erro ao buscar perfil profissional para avaliacao:', error.message)
     }
 
     return data?.id || null
   }
 
-  async hasAcceptedProposal(requestId: string, professionalId: string): Promise<boolean> {
-    const { count, error } = await supabaseAdmin
+  async hasAcceptedProposal(db: SupabaseClient, requestId: string, professionalId: string): Promise<boolean> {
+    const { count, error } = await db
       .from('proposals')
       .select('*', { count: 'exact', head: true })
       .eq('service_request_id', requestId)
@@ -59,7 +58,7 @@ export class RatingsRepository {
       .eq('status', 'accepted')
 
     if (error) {
-      console.warn('Erro ao validar proposta aceita para avaliação:', error.message)
+      console.warn('Erro ao validar proposta aceita para avaliacao:', error.message)
       return false
     }
 
@@ -87,18 +86,15 @@ export class RatingsRepository {
       .single()
 
     if (error || !data) {
-      throw new Error(error?.message || 'Erro ao criar avaliação')
+      throw new Error(error?.message || 'Erro ao criar avaliacao')
     }
 
     return data as RatingEntity
   }
 
-  async listByUserId(
-    toUserId: string,
-    pagination: { page: number; limit: number },
-  ): Promise<RatingWithAuthor[]> {
+  async listByUserId(db: SupabaseClient, toUserId: string, pagination: { page: number; limit: number }): Promise<RatingWithAuthor[]> {
     const offset = (pagination.page - 1) * pagination.limit
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await db
       .from('ratings')
       .select(`
         id,
@@ -115,7 +111,7 @@ export class RatingsRepository {
       .range(offset, offset + pagination.limit - 1)
 
     if (error) {
-      console.warn('Erro ao listar avaliações:', error.message)
+      console.warn('Erro ao listar avaliacoes:', error.message)
       return []
     }
 
@@ -131,23 +127,22 @@ export class RatingsRepository {
     }))
   }
 
-  async getSummaryByUserId(toUserId: string): Promise<{ average: number; total: number }> {
-    const { data, error } = await supabaseAdmin
+  async getSummaryByUserId(db: SupabaseClient, toUserId: string): Promise<{ average: number; total: number }> {
+    const { data, error } = await db
       .from('ratings')
       .select('score')
       .eq('to_user_id', toUserId)
 
     if (error) {
-      console.warn('Erro ao buscar resumo de avaliações:', error.message)
+      console.warn('Erro ao buscar resumo de avaliacoes:', error.message)
       return { average: 0, total: 0 }
     }
 
     const total = data?.length || 0
-    if (total === 0) {
-      return { average: 0, total: 0 }
-    }
+    if (total === 0) return { average: 0, total: 0 }
 
-    const sum = data!.reduce((acc, row) => acc + Number(row.score || 0), 0)
+    const sum = (data || []).reduce((acc: number, row: any) => acc + Number(row.score || 0), 0)
     return { average: Number((sum / total).toFixed(2)), total }
   }
 }
+

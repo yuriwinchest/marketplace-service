@@ -5,7 +5,7 @@ import { registerSchema, loginSchema } from './auth.schema.js'
 import { z } from 'zod'
 
 const refreshTokenSchema = z.object({
-  refreshToken: z.string().min(1, 'Refresh token é obrigatório'),
+  refreshToken: z.string().min(1, 'Refresh token e obrigatorio'),
 })
 
 export class AuthController extends BaseController {
@@ -16,38 +16,30 @@ export class AuthController extends BaseController {
   async register(req: Request, res: Response): Promise<Response> {
     const parsed = registerSchema.safeParse(req.body)
     if (!parsed.success) {
-      return this.error(res, 'Dados inválidos')
+      return this.error(res, 'Dados invalidos')
     }
 
+    // Security: avatars must be uploaded and normalized server-side (no external URLs).
     const file = (req as any).file as { filename?: string } | undefined
     const fileAvatarUrl = file?.filename ? `/uploads/${file.filename}` : undefined
-    const avatarUrl = fileAvatarUrl ?? parsed.data.avatarUrl
-    if (!avatarUrl || !String(avatarUrl).trim()) {
-      return this.error(res, 'Foto é obrigatória')
+    if (!fileAvatarUrl) {
+      return this.error(res, 'Envie uma foto como anexo (arquivo)')
     }
 
     try {
       const result = await this.authService.register({
         ...parsed.data,
-        avatarUrl,
+        avatarUrl: fileAvatarUrl,
+      } as any)
+
+      return this.created(res, {
+        userId: result.id,
+        pendingConfirmation: result.pendingConfirmation ?? false,
       })
-      return this.created(res, { userId: result.id, pendingConfirmation: result.pendingConfirmation ?? false })
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro ao cadastrar'
-      if (message === 'E-mail já cadastrado') {
-        return this.error(res, message, 409)
-      }
-      if (message.toLowerCase().includes('muitas tentativas')) {
-        return this.error(res, message, 429)
-      }
-      if (
-        message.toLowerCase().includes('e-mail inválido') ||
-        message.toLowerCase().includes('senha') ||
-        message.toLowerCase().includes('foto') ||
-        message.toLowerCase().includes('dados')
-      ) {
-        return this.error(res, message, 400)
-      }
+      if (message === 'E-mail ja cadastrado') return this.error(res, message, 409)
+      if (message.toLowerCase().includes('muitas tentativas')) return this.error(res, message, 429)
       return this.serverError(res, message)
     }
   }
@@ -55,7 +47,7 @@ export class AuthController extends BaseController {
   async login(req: Request, res: Response): Promise<Response> {
     const parsed = loginSchema.safeParse(req.body)
     if (!parsed.success) {
-      return this.error(res, 'Dados inválidos')
+      return this.error(res, 'Dados invalidos')
     }
 
     try {
@@ -79,18 +71,16 @@ export class AuthController extends BaseController {
   async refresh(req: Request, res: Response): Promise<Response> {
     const parsed = refreshTokenSchema.safeParse(req.body)
     if (!parsed.success) {
-      return this.error(res, 'Dados inválidos')
+      return this.error(res, 'Dados invalidos')
     }
 
     try {
       const result = await this.authService.refreshToken(parsed.data.refreshToken)
       return this.success(res, result)
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Erro ao renovar token'
-      if (message.toLowerCase().includes('sessão') || message.includes('inválido') || message.includes('expirado')) {
-        return this.unauthorized(res, message)
-      }
-      return this.serverError(res, message)
+      const message = error instanceof Error ? error.message : 'Erro ao atualizar sessao'
+      return this.unauthorized(res, message)
     }
   }
 }
+
