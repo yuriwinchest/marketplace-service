@@ -5,7 +5,7 @@ const citySchema = z.string().trim().min(1).max(64).regex(/^[^,()]+$/)
 
 export const openRequestsQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
-  limit: z.coerce.number().int().positive().max(50).default(20),
+  limit: z.coerce.number().int().positive().max(100).default(20),
   urgentOnly: z.coerce.boolean().optional(),
   categoryId: z.string().uuid().optional(),
   urgency: z.enum(['low', 'medium', 'high']).optional(),
